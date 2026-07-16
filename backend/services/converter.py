@@ -138,7 +138,7 @@ def extract_video_details(url: str, sessdata: str = None, log_func: Callable[[st
                         break
                         
             if not sub_file:
-                raise Exception("未下载到任何匹配的字幕文件（zh-Hans, zh, ai-zh, en）。请检查视频是否开启了字幕。")
+                raise Exception("未能找到该视频的任何字幕（CC字幕或AI生成字幕）。请确保原视频附带字幕。")
             
             is_vtt = sub_file.endswith('.vtt')
             if log_func:

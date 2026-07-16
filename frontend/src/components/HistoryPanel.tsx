@@ -6,7 +6,9 @@ interface HistoryPanelProps {
   articles: ArticleResponseData[];
   activeTasks?: TaskResponseData[];
   selectedArticleId: number | null;
+  selectedActiveTaskId: string | null;
   onSelectArticle: (id: number) => void;
+  onSelectActiveTask: (id: string) => void;
   onDeleteArticle: (id: number) => void;
   onNewTask: () => void;
 }
@@ -15,7 +17,9 @@ export default function HistoryPanel({
   articles,
   activeTasks = [],
   selectedArticleId,
+  selectedActiveTaskId,
   onSelectArticle,
+  onSelectActiveTask,
   onDeleteArticle,
   onNewTask,
 }: HistoryPanelProps) {
@@ -37,7 +41,7 @@ export default function HistoryPanel({
     <div className="flex flex-col h-full bg-bg-sidebar/80 border-r border-border-bezel backdrop-blur-xl w-full text-text-body">
       {/* Sidebar Header */}
       <div className="p-4 border-b border-border-card flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-text-muted flex items-center gap-1.5 uppercase tracking-wider">
+        <span className="text-sm font-semibold text-text-muted flex items-center gap-1.5 uppercase tracking-wider">
           <FileText size={14} strokeWidth={1.5} className="text-accent-text" />
           <span>转换历史 ({articles.length})</span>
         </span>
@@ -72,11 +76,20 @@ export default function HistoryPanel({
               let logs = [];
               try { logs = JSON.parse(task.logs); } catch (e) {}
               const lastLog = logs.length > 0 ? logs[logs.length - 1] : "正在初始化...";
+              const isSelected = selectedActiveTaskId === task.id;
 
               return (
-                <div key={task.id} className="bg-bg-card/40 border border-border-card rounded-2xl p-3 flex flex-col gap-2">
+                <div 
+                  key={task.id} 
+                  onClick={() => onSelectActiveTask(task.id)}
+                  className={`border rounded-2xl p-3 flex flex-col gap-2 cursor-pointer transition-spring ${
+                    isSelected
+                      ? "bg-accent-light border-accent-border shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]"
+                      : "bg-bg-card/40 border-border-card hover:bg-bg-bezel hover:border-border-bezel"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-text-title truncate" title={task.video_url}>
+                    <span className={`text-xs font-semibold truncate transition-colors ${isSelected ? "text-text-title" : "text-text-body/90"}`} title={task.video_url}>
                       {task.video_url}
                     </span>
                     <span className="text-[10px] font-mono text-accent-text">{Math.round(task.progress)}%</span>

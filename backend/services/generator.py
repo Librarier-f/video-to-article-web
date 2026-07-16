@@ -103,6 +103,7 @@ async def generate_article_task(
             
         video_url = task.video_url
         style = task.style or "notion_dark"
+        target_lang = "【中文】" if task.language == "zh" else "【英文 (English)】"
         
         # Track token usage
         total_tokens = 0
@@ -149,6 +150,7 @@ async def generate_article_task(
                 
                 prompt = (
                     f"请根据以下视频字幕内容，整理、润色并写成一篇排版精美、富有深度的 Notion 风格自媒体文章。\n"
+                    f"⚠️ 极其重要：不论以下字幕原文是何种语言，你都必须直接在脑海中将其理解，并严格使用{target_lang}来撰写最终的文章！\n"
                     f"要求还原视频中的核心案例与主要数据，语言要口语化且有吸引力。\n\n"
                     f"【字幕内容】：\n{subtitles_text}"
                 )
@@ -180,7 +182,7 @@ async def generate_article_task(
                         db
                     )
                     
-                    chunk_prompt = f"请简明扼要地总结以下视频段落字幕的核心论点、引用的数据、金句与案例（尽量保留具体的专业名词和数值细节）：\n\n{chunk}"
+                    chunk_prompt = f"请简明扼要地总结以下视频段落字幕的核心论点、引用的数据、金句与案例（尽量保留具体的专业名词和数值细节）。\n⚠️ 请注意：即使以下字幕是其他语言，你也必须强制使用{target_lang}输出总结内容：\n\n{chunk}"
                     summary, usage = await call_llm_api(provider, model, chunk_prompt, "你是一个擅长提炼核心要点的专业助理。", keys, api_base_url)
                     total_tokens += usage.get("total_tokens", 0) if "total_tokens" in usage else (usage.get("totalTokens", 0) if "totalTokens" in usage else 0)
                     summaries.append(summary)
@@ -195,6 +197,7 @@ async def generate_article_task(
                     f"为了能让后台程序分段解析，请**严格以标准 JSON 数组的格式返回**大纲。JSON 数组中的每个对象代表一个章节，包含以下两个字段：\n"
                     f"1. 'title': 该章节的标题名称（不含任何 HTML 或 markdown 标签）\n"
                     f"2. 'description': 该章节拟深入撰写的内容要点与数据引导\n\n"
+                    f"⚠️ 极其重要：不论原视频要点是何种语言，你生成的 JSON 大纲中的 title 和 description 必须严格使用{target_lang}撰写！\n"
                     f"⚠️ 注意：只返回合法的 JSON 数组本身，绝对不要包含任何 markdown 包裹符号（不要写 ```json）或其他多余的解释文字！\n\n"
                     f"【片段汇总要点】：\n{combined_summaries}"
                 )
@@ -248,9 +251,10 @@ async def generate_article_task(
                     
                     chapter_prompt = (
                         f"请深度撰写文章的第 {ch_idx+1} 章节。\n"
-                        f"本章标题：《{ch_title}》\n"
-                        f"本章撰写指南：{ch_desc}\n\n"
-                        f"【本章上下文依赖要点汇总】：\n{combined_summaries}\n\n"
+                        f"⚠️ 极其重要：你必须严格使用{target_lang}来撰写本章节内容！\n"
+                        f"【章节大纲】：\n标题：{ch_title}\n重点说明：{ch_desc}\n\n"
+                        f"【参考视频要点片段】：\n"
+                        f"（请从以下整体摘要中提取与本章相关的内容进行详实扩写，保持逻辑严密，并用口语化的自媒体风格呈现）：\n{combined_summaries}\n\n"
                         f"请严格遵守写作规范：\n"
                         f"1. 正文内容字数不少于 800 - 1200 字，力求还原原视频中具体的细节、数据、故事与金句，拒绝平铺直叙的空洞概括。\n"
                         f"2. 必须使用标准的 HTML 标签（如 <p>, <ul>, <li>，可用引用 <blockquote>，重点标注可以用 callout 等标签）。\n"

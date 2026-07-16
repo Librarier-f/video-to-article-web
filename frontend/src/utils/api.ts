@@ -30,6 +30,7 @@ export interface TaskCreatePayload {
   provider: string;
   model: string;
   api_base_url?: string;
+  custom_api_key?: string;
 }
 
 export interface TaskResponseData {

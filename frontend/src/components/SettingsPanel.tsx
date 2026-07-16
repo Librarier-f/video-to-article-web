@@ -6,36 +6,36 @@ interface SettingsPanelProps {
 }
 
 export default function SettingsPanel({ onClose }: SettingsPanelProps) {
-  const [geminiKey, setGeminiKey] = useState("");
-  const [claudeKey, setClaudeKey] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [deepseekKey, setDeepseekKey] = useState("");
+  const [minimaxKey, setMinimaxKey] = useState("");
+  const [glmKey, setGlmKey] = useState("");
   const [kimiKey, setKimiKey] = useState("");
+  const [deepseekKey, setDeepseekKey] = useState("");
+  const [siliconflowKey, setSiliconflowKey] = useState("");
 
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
-    gemini: false,
-    claude: false,
-    openai: false,
-    deepseek: false,
+    minimax: false,
+    glm: false,
     kimi: false,
+    deepseek: false,
+    siliconflow: false,
   });
 
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setGeminiKey(localStorage.getItem("byok_gemini_key") || "");
-    setClaudeKey(localStorage.getItem("byok_claude_key") || "");
-    setOpenaiKey(localStorage.getItem("byok_openai_key") || "");
-    setDeepseekKey(localStorage.getItem("byok_deepseek_key") || "");
+    setMinimaxKey(localStorage.getItem("byok_minimax_key") || "");
+    setGlmKey(localStorage.getItem("byok_glm_key") || "");
     setKimiKey(localStorage.getItem("byok_kimi_key") || "");
+    setDeepseekKey(localStorage.getItem("byok_deepseek_key") || "");
+    setSiliconflowKey(localStorage.getItem("byok_siliconflow_key") || "");
   }, []);
 
   const handleSave = () => {
-    localStorage.setItem("byok_gemini_key", geminiKey.trim());
-    localStorage.setItem("byok_claude_key", claudeKey.trim());
-    localStorage.setItem("byok_openai_key", openaiKey.trim());
-    localStorage.setItem("byok_deepseek_key", deepseekKey.trim());
+    localStorage.setItem("byok_minimax_key", minimaxKey.trim());
+    localStorage.setItem("byok_glm_key", glmKey.trim());
     localStorage.setItem("byok_kimi_key", kimiKey.trim());
+    localStorage.setItem("byok_deepseek_key", deepseekKey.trim());
+    localStorage.setItem("byok_siliconflow_key", siliconflowKey.trim());
 
     setSaved(true);
     setTimeout(() => {
@@ -49,11 +49,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   };
 
   const providers = [
-    { id: "gemini", label: "Google Gemini Key", val: geminiKey, setVal: setGeminiKey },
-    { id: "claude", label: "Anthropic Claude Key", val: claudeKey, setVal: setClaudeKey },
-    { id: "openai", label: "OpenAI API Key", val: openaiKey, setVal: setOpenaiKey },
+    { id: "minimax", label: "MiniMax API Key", val: minimaxKey, setVal: setMinimaxKey },
+    { id: "glm", label: "智谱 GLM API Key", val: glmKey, setVal: setGlmKey },
+    { id: "kimi", label: "月之暗面 Kimi API Key", val: kimiKey, setVal: setKimiKey },
     { id: "deepseek", label: "DeepSeek API Key", val: deepseekKey, setVal: setDeepseekKey },
-    { id: "kimi", label: "月之暗面 Kimi Key", val: kimiKey, setVal: setKimiKey },
+    { id: "siliconflow", label: "硅基流动 API Key", val: siliconflowKey, setVal: setSiliconflowKey },
   ];
 
   return (

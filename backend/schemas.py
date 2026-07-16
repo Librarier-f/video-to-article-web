@@ -10,6 +10,7 @@ class TaskCreate(BaseModel):
     provider: str = Field(default="gemini", description="LLM Provider (gemini, claude, openai, deepseek, kimi)")
     model: str = Field(default="gemini-2.5-flash", description="Model name to write the article")
     api_base_url: Optional[str] = Field(default=None, description="Custom API base URL")
+    custom_api_key: Optional[str] = Field(default=None, description="Custom provider API Key")
 
 class TaskResponse(BaseModel):
     id: str

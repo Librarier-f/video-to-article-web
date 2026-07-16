@@ -18,16 +18,18 @@ async def call_llm_api(
     
     # Select API Key
     api_key = ""
-    if provider == "gemini":
-        api_key = keys.get("x-gemini-key") or keys.get("X-Gemini-Key") or ""
-    elif provider == "claude":
-        api_key = keys.get("x-claude-key") or keys.get("X-Claude-Key") or ""
-    elif provider == "openai":
-        api_key = keys.get("x-openai-key") or keys.get("X-OpenAI-Key") or ""
+    if provider == "minimax":
+        api_key = keys.get("x-minimax-key") or keys.get("X-Minimax-Key") or ""
+    elif provider == "glm":
+        api_key = keys.get("x-glm-key") or keys.get("X-Glm-Key") or ""
+    elif provider == "kimi":
+        api_key = keys.get("x-kimi-key") or keys.get("X-Kimi-Key") or ""
     elif provider == "deepseek":
         api_key = keys.get("x-deepseek-key") or keys.get("X-Deepseek-Key") or ""
-    elif provider == "kimi":
-        api_key = keys.get("x-kimi-key") or keys.get("X-Kimi-Key") or keys.get("x-moonshot-key") or keys.get("X-Moonshot-Key") or ""
+    elif provider == "siliconflow":
+        api_key = keys.get("x-siliconflow-key") or keys.get("X-Siliconflow-Key") or ""
+    elif provider == "custom":
+        api_key = keys.get("x-custom-key") or keys.get("X-Custom-Key") or ""
 
     if not api_key:
         raise Exception(f"未提供 {provider.upper()} 的 API Key。请前往设置面板配置。")
@@ -35,76 +37,23 @@ async def call_llm_api(
     timeout = httpx.Timeout(180.0, connect=10.0) # Long timeout for writing large articles
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        # 1. Google Gemini
-        if provider == "gemini":
-            base = api_base_url.rstrip('/') if api_base_url else "https://generativelanguage.googleapis.com/v1beta"
-            url = f"{base}/models/{model}:generateContent?key={api_key}"
-            payload: Dict[str, Any] = {
-                "contents": [
-                    {
-                        "parts": [{"text": prompt}]
-                    }
-                ]
-            }
-            if system_prompt:
-                payload["systemInstruction"] = {
-                    "parts": [{"text": system_prompt}]
-                }
-                
-            response = await client.post(url, json=payload)
-            if response.status_code != 200:
-                raise Exception(f"Gemini API 错误 ({response.status_code}): {response.text}")
-            
-            res_json = response.json()
-            try:
-                text = res_json['candidates'][0]['content']['parts'][0]['text']
-                usage = res_json.get('usageMetadata', {})
-                return text, usage
-            except (KeyError, IndexError):
-                raise Exception(f"解析 Gemini 响应失败: {response.text}")
-
-        # 2. Anthropic Claude
-        elif provider == "claude":
-            base = api_base_url.rstrip('/') if api_base_url else "https://api.anthropic.com/v1"
-            url = f"{base}/messages"
-            headers = {
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            }
-            payload = {
-                "model": model,
-                "max_tokens": 4000,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
-            }
-            if system_prompt:
-                payload["system"] = system_prompt
-                
-            response = await client.post(url, headers=headers, json=payload)
-            if response.status_code != 200:
-                raise Exception(f"Claude API 错误 ({response.status_code}): {response.text}")
-                
-            res_json = response.json()
-            try:
-                text = res_json['content'][0]['text']
-                usage = res_json.get('usage', {})
-                return text, usage
-            except (KeyError, IndexError):
-                raise Exception(f"解析 Claude 响应失败: {response.text}")
-
-        # 3. OpenAI / DeepSeek / Kimi (Standard Chat Completions)
-        elif provider in ["openai", "deepseek", "kimi"]:
+        # 1. Standard Chat Completions (MiniMax, GLM, Kimi, DeepSeek, SiliconFlow, Custom)
+        if provider in ["minimax", "glm", "kimi", "deepseek", "siliconflow", "custom"]:
             if api_base_url:
                 url = f"{api_base_url.rstrip('/')}/chat/completions" if not api_base_url.endswith("/chat/completions") else api_base_url
             else:
-                if provider == "openai":
-                    url = "https://api.openai.com/v1/chat/completions"
+                if provider == "minimax":
+                    url = "https://api.minimax.chat/v1/chat/completions"
+                elif provider == "glm":
+                    url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                elif provider == "kimi":
+                    url = "https://api.moonshot.cn/v1/chat/completions"
                 elif provider == "deepseek":
                     url = "https://api.deepseek.com/chat/completions"
-                else: # kimi
-                    url = "https://api.moonshot.cn/v1/chat/completions"
+                elif provider == "siliconflow":
+                    url = "https://api.siliconflow.cn/v1/chat/completions"
+                else:
+                    url = ""
                 
             headers = {
                 "Authorization": f"Bearer {api_key}",
@@ -122,9 +71,20 @@ async def call_llm_api(
                 "temperature": 0.5
             }
             
-            response = await client.post(url, headers=headers, json=payload)
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+            except httpx.RequestError as exc:
+                raise Exception(f"{provider.upper()} API 错误：自定义 API 地址无法访问或网络超时。({str(exc)})")
+
             if response.status_code != 200:
-                raise Exception(f"{provider.upper()} API 错误 ({response.status_code}): {response.text}")
+                if response.status_code == 401:
+                    raise Exception(f"{provider.upper()} API 错误 (401)：API 密钥无效或未授权，请检查密钥是否正确。")
+                elif response.status_code == 404:
+                    raise Exception(f"{provider.upper()} API 错误 (404)：模型名称无效或接口地址路径（如 /v1/chat/completions）有误。")
+                elif response.status_code == 429:
+                    raise Exception(f"{provider.upper()} API 错误 (429)：请求过于频繁或额度已耗尽。")
+                else:
+                    raise Exception(f"{provider.upper()} API 错误 ({response.status_code}): {response.text}")
                 
             res_json = response.json()
             try:

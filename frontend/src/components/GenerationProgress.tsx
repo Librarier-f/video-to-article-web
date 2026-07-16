@@ -9,12 +9,12 @@ interface GenerationProgressProps {
 }
 
 export default function GenerationProgress({ progress, currentStep, logs, status }: GenerationProgressProps) {
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll logs terminal to bottom
+  // Auto-scroll logs terminal to bottom without scrolling the whole page
   useEffect(() => {
-    if (terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
     }
   }, [logs]);
 
@@ -68,7 +68,10 @@ export default function GenerationProgress({ progress, currentStep, logs, status
             <Terminal size={12} strokeWidth={1.5} />
             <span>后台处理日志监控</span>
           </div>
-          <div className="bg-[#07080b]/95 border border-border-card rounded-xl p-4 font-mono text-[10px] text-emerald-400/90 h-48 overflow-y-auto space-y-2 shadow-inner">
+          <div 
+            ref={terminalContainerRef}
+            className="bg-[#07080b]/95 border border-border-card rounded-xl p-4 font-mono text-[10px] text-emerald-400/90 h-48 overflow-y-auto space-y-2 shadow-inner scroll-smooth"
+          >
             {logs.map((log, i) => (
               <div key={i} className="leading-relaxed border-l-2 border-emerald-500/20 pl-2.5">
                 {log}
@@ -81,7 +84,6 @@ export default function GenerationProgress({ progress, currentStep, logs, status
                 <span className="animate-pulse">正在等待下一步日志反馈...</span>
               </div>
             )}
-            <div ref={terminalEndRef} />
           </div>
         </div>
       </div>

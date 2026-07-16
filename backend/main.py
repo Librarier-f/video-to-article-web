@@ -22,6 +22,11 @@ try:
         columns = [row[1] for row in cursor.fetchall()]
         if "markdown_content" not in columns:
             conn.execute(text("ALTER TABLE articles ADD COLUMN markdown_content TEXT"))
+            
+        cursor = conn.execute(text("PRAGMA table_info(tasks)"))
+        task_columns = [row[1] for row in cursor.fetchall()]
+        if "api_base_url" not in task_columns:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN api_base_url VARCHAR(500)"))
 except Exception as e:
     import logging
     logging.getLogger("uvicorn").error(f"Database migration check failed: {e}")
@@ -87,7 +92,8 @@ def create_task(
         "x-claude-key": x_claude_key or "",
         "x-openai-key": x_openai_key or "",
         "x-deepseek-key": x_deepseek_key or "",
-        "x-kimi-key": x_kimi_key or ""
+        "x-kimi-key": x_kimi_key or "",
+        "x-custom-key": task_in.custom_api_key or ""
     }
 
     # Verify that at least one key is provided for the selected provider

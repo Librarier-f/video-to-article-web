@@ -37,6 +37,7 @@ export default function App() {
   
   // Active task monitoring (supports multiple tasks)
   const [activeTasks, setActiveTasks] = useState<TaskResponseData[]>([]);
+  const [selectedActiveTaskId, setSelectedActiveTaskId] = useState<string | null>(null);
   
   // UI control state
   const [showSettings, setShowSettings] = useState(false);
@@ -80,8 +81,14 @@ export default function App() {
               const status = await fetchTaskStatus(task.id);
               if (status.status === "completed" || status.status === "failed") {
                 if (status.status === "completed") {
+                  if (task.id === selectedActiveTaskId) {
+                    setSelectedActiveTaskId(null); // Deselect if completed
+                  }
                   historyNeedsUpdate = true;
                 } else if (status.status === "failed") {
+                  if (task.id === selectedActiveTaskId) {
+                    setSelectedActiveTaskId(null);
+                  }
                   try {
                     const logsArray = JSON.parse(status.logs);
                     setError(`任务失败: ${logsArray[logsArray.length - 1] || "生成失败"}`);
@@ -146,6 +153,7 @@ export default function App() {
         return;
       }
       setActiveTasks((prev) => [...prev, task]);
+      setSelectedActiveTaskId(task.id);
     } catch (err: any) {
       setError(err.message || "无法创建任务，请重试。");
     }
@@ -153,6 +161,7 @@ export default function App() {
 
   const handleSelectArticle = async (id: number) => {
     setSelectedArticleId(id);
+    setSelectedActiveTaskId(null);
     setShowMobileHistory(false);
     setError(null);
 
@@ -180,8 +189,26 @@ export default function App() {
   const handleNewTask = () => {
     setSelectedArticleId(null);
     setSelectedArticle(null);
+    setSelectedActiveTaskId(null);
     setError(null);
     setShowMobileHistory(false);
+  };
+
+  const handleSelectActiveTask = (id: string) => {
+    setSelectedActiveTaskId(id);
+    setSelectedArticleId(null);
+    setSelectedArticle(null);
+    setShowMobileHistory(false);
+    setError(null);
+  };
+
+  const getLogsArray = (task: TaskResponseData | undefined) => {
+    if (!task?.logs) return [];
+    try {
+      return JSON.parse(task.logs);
+    } catch {
+      return [];
+    }
   };
 
 
@@ -205,7 +232,9 @@ export default function App() {
           articles={history}
           activeTasks={activeTasks}
           selectedArticleId={selectedArticleId}
+          selectedActiveTaskId={selectedActiveTaskId}
           onSelectArticle={handleSelectArticle}
+          onSelectActiveTask={handleSelectActiveTask}
           onDeleteArticle={handleDeleteArticle}
           onNewTask={handleNewTask}
         />
@@ -220,7 +249,9 @@ export default function App() {
               articles={history}
               activeTasks={activeTasks}
               selectedArticleId={selectedArticleId}
+              selectedActiveTaskId={selectedActiveTaskId}
               onSelectArticle={handleSelectArticle}
+              onSelectActiveTask={handleSelectActiveTask}
               onDeleteArticle={handleDeleteArticle}
               onNewTask={handleNewTask}
             />
@@ -242,17 +273,16 @@ export default function App() {
               <Menu size={18} strokeWidth={1.5} />
             </button>
             
-            <h1 className="text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2 text-text-title">
+            <h1 className="text-sm md:text-base font-semibold tracking-wide flex items-center gap-2 text-text-title">
               <Video size={16} strokeWidth={1.5} className="text-accent-text" />
               <span>视频转文章系统</span>
-              <span className="text-[9px] bg-accent-light border border-accent-border text-accent-text font-mono px-2 py-0.5 rounded-full font-medium uppercase tracking-wider">BYOK</span>
             </h1>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleNewTask}
-              className="px-3.5 py-1.5 hover:bg-bg-bezel active:scale-[0.97] text-text-body rounded-full focus:outline-none flex items-center gap-1.5 text-xs transition-spring font-medium cursor-pointer"
+              className="px-3.5 py-1.5 hover:bg-bg-bezel active:scale-[0.97] text-text-body rounded-full focus:outline-none flex items-center gap-1.5 text-sm transition-spring font-medium cursor-pointer"
               title="新建文章生成"
             >
               <Plus size={15} strokeWidth={1.5} />
@@ -269,7 +299,7 @@ export default function App() {
 
             <button
               onClick={() => setShowSettings(true)}
-              className="pl-3.5 pr-2.5 py-1.5 bg-bg-bezel border border-border-bezel hover:bg-bg-bezel/80 hover:border-border-bezel active:scale-[0.97] text-text-title rounded-full focus:outline-none flex items-center gap-1 text-xs transition-spring font-medium shadow-sm cursor-pointer"
+              className="pl-3.5 pr-2.5 py-1.5 bg-bg-bezel border border-border-bezel hover:bg-bg-bezel/80 hover:border-border-bezel active:scale-[0.97] text-text-title rounded-full focus:outline-none flex items-center gap-1 text-sm transition-spring font-medium shadow-sm cursor-pointer"
               title="设置 API 密钥"
             >
               <span>设置</span>
@@ -279,7 +309,7 @@ export default function App() {
         </header>
 
         {/* Workspace Body Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 max-w-4xl mx-auto w-full flex flex-col gap-6 relative z-10">
+        <main className={`flex-1 p-4 md:p-6 mx-auto w-full flex flex-col gap-6 relative z-10 ${selectedArticle && !selectedActiveTaskId ? "overflow-hidden max-w-6xl" : "overflow-y-auto max-w-4xl"}`}>
           {/* Error Banner */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-xs text-red-400 flex items-start gap-2.5 animate-fade-up">
@@ -289,54 +319,64 @@ export default function App() {
           )}
 
           {/* Decision Tree Routing */}
-          {selectedArticle ? (
-            /* Preview Document Screen */
-            <div className="flex-1 min-h-[70vh] animate-fade-up">
+          {selectedActiveTaskId && activeTasks.find((t) => t.id === selectedActiveTaskId) && (
+            <div className="flex-1 flex items-center justify-center py-10 animate-fade-up">
+              <GenerationProgress
+                progress={activeTasks.find((t) => t.id === selectedActiveTaskId)!.progress}
+                currentStep={activeTasks.find((t) => t.id === selectedActiveTaskId)!.current_step}
+                logs={getLogsArray(activeTasks.find((t) => t.id === selectedActiveTaskId))}
+                status={activeTasks.find((t) => t.id === selectedActiveTaskId)!.status}
+              />
+            </div>
+          )}
+
+          {selectedArticle && !selectedActiveTaskId && (
+            <div className="flex-1 w-full flex flex-col overflow-hidden animate-fade-up min-h-0">
               <ArticlePreview 
                 article={selectedArticle} 
                 onRefresh={loadHistory}
               />
             </div>
-          ) : (
-            /* Welcome / Input Screen */
-            <div className="space-y-8 max-w-xl mx-auto w-full pt-6 md:pt-16 animate-fade-up">
-              <div className="text-center space-y-3 mb-8">
-                <div className="inline-flex rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-accent-light border border-accent-border text-accent-text mb-2">
-                  <Sparkles size={10} className="inline mr-1" /> Premium AI Synthesizer
-                </div>
-                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-text-title font-serif">
-                  视频字幕生成高保真文章
-                </h2>
-                <p className="text-xs md:text-sm text-text-muted max-w-md mx-auto leading-relaxed">
-                  一键提取 Bilibili / YouTube 视频字幕，并利用顶级模型进行分章节深度重组与高档 Notion 风格排版。
-                </p>
-              </div>
-
-              <VideoInput
-                onSubmit={handleCreateTask}
-                onOpenSettings={() => setShowSettings(true)}
-                isLoading={false}
-              />
-
-              {/* Direct Setup Wizard Prompt */}
-              {!localStorage.getItem("byok_gemini_key") && 
-               !localStorage.getItem("byok_claude_key") && 
-               !localStorage.getItem("byok_openai_key") && (
-                <div className="bg-accent-light border border-accent-border rounded-2xl p-5 text-xs text-text-body flex flex-col gap-2.5 shadow-sm">
-                  <span className="font-semibold text-accent-text flex items-center gap-1.5">💡 快速开始前置步骤：</span>
-                  <p className="text-text-muted leading-relaxed">
-                    当前检测到您尚未在本地浏览器配置任何大模型密钥。本应用为 BYOK 模式，请点击右上角「设置」或下方按钮填入你的大模型 API Key 即可开始。
-                  </p>
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="self-start text-accent-text underline hover:text-accent-text/80 flex items-center gap-0.5 mt-1 focus:outline-none transition-colors cursor-pointer"
-                  >
-                    立即去配置密钥 <ArrowRight size={12} strokeWidth={1.5} />
-                  </button>
-                </div>
-              )}
-            </div>
           )}
+
+          {/* Welcome / Input Screen - Kept in DOM to preserve state, toggled via CSS */}
+          <div className={(!selectedArticle && !selectedActiveTaskId) ? "space-y-8 max-w-xl mx-auto w-full pt-6 md:pt-16 animate-fade-up" : "hidden"}>
+            <div className="text-center space-y-3 mb-8">
+              <div className="inline-flex rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-accent-light border border-accent-border text-accent-text mb-2">
+                <Sparkles size={10} className="inline mr-1" /> Premium AI Synthesizer
+              </div>
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-text-title font-serif">
+                视频字幕生成高保真文章
+              </h2>
+              <p className="text-xs md:text-sm text-text-muted max-w-md mx-auto leading-relaxed">
+                一键提取 Bilibili / YouTube 视频字幕，并利用顶级模型进行分章节深度重组与高档 Notion 风格排版。
+              </p>
+            </div>
+
+            <VideoInput
+              onSubmit={handleCreateTask}
+              onOpenSettings={() => setShowSettings(true)}
+              isLoading={false}
+            />
+
+            {/* Direct Setup Wizard Prompt */}
+            {!localStorage.getItem("byok_gemini_key") && 
+             !localStorage.getItem("byok_claude_key") && 
+             !localStorage.getItem("byok_openai_key") && (
+              <div className="bg-accent-light border border-accent-border rounded-2xl p-5 text-xs text-text-body flex flex-col gap-2.5 shadow-sm">
+                <span className="font-semibold text-accent-text flex items-center gap-1.5">💡 快速开始前置步骤：</span>
+                <p className="text-text-muted leading-relaxed">
+                  当前检测到您尚未在本地浏览器配置任何大模型密钥。本应用为 BYOK 模式，请点击右上角「设置」或下方按钮填入你的大模型 API Key 即可开始。
+                </p>
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="self-start text-accent-text underline hover:text-accent-text/80 flex items-center gap-0.5 mt-1 focus:outline-none transition-colors cursor-pointer"
+                >
+                  立即去配置密钥 <ArrowRight size={12} strokeWidth={1.5} />
+                </button>
+              </div>
+            )}
+          </div>
         </main>
       </div>
 

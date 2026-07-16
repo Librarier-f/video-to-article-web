@@ -11,15 +11,15 @@ interface VideoInputProps {
 export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: VideoInputProps) {
   const [url, setUrl] = useState("");
   const [isBilibili, setIsBilibili] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   
   // Form options
   const [style, setStyle] = useState("notion_dark");
   const [language, setLanguage] = useState("zh");
   const [sessdata, setSessdata] = useState("");
-  const [provider, setProvider] = useState("gemini");
-  const [model, setModel] = useState("gemini-2.5-flash");
+  const [provider, setProvider] = useState("deepseek");
+  const [model, setModel] = useState("deepseek-v4-pro");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
+  const [customApiKey, setCustomApiKey] = useState("");
 
   // Track Bilibili URL to show Cookie input
   useEffect(() => {
@@ -31,18 +31,19 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
     }
   }, [url]);
 
-  // Adjust model default choices when provider changes
   useEffect(() => {
-    if (provider === "gemini") {
-      setModel("gemini-2.5-flash");
-    } else if (provider === "claude") {
-      setModel("claude-3-5-sonnet-latest");
-    } else if (provider === "openai") {
-      setModel("gpt-4o-mini");
+    if (provider === "minimax") {
+      setModel("minimax-m3");
+    } else if (provider === "glm") {
+      setModel("glm-5.2");
+    } else if (provider === "kimi") {
+      setModel("kimi-k2.7-code");
     } else if (provider === "deepseek") {
       setModel("deepseek-v4-pro");
-    } else if (provider === "kimi") {
-      setModel("moonshot-v1-8k");
+    } else if (provider === "siliconflow") {
+      setModel("THUDM/glm-5.2");
+    } else if (provider === "custom") {
+      setModel("gpt-3.5-turbo"); // A generic default for custom OpenAI compatible
     }
   }, [provider]);
 
@@ -58,36 +59,39 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
       provider,
       model,
       api_base_url: apiBaseUrl.trim() ? apiBaseUrl.trim() : undefined,
+      custom_api_key: customApiKey.trim() ? customApiKey.trim() : undefined,
     });
   };
 
   const getModelsForProvider = () => {
     switch (provider) {
-      case "gemini":
+      case "minimax":
         return [
-          { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (推荐，快速高性价比)" },
-          { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro (深度文章首选)" },
+          { value: "minimax-m3", label: "MiniMax M3 (最新旗舰, 1M上下文)" },
+          { value: "abab6.5s-chat", label: "MiniMax abab6.5s (快速)" },
         ];
-      case "claude":
+      case "glm":
         return [
-          { value: "claude-3-5-sonnet-latest", label: "Claude 3.5 Sonnet (逻辑与表达极佳)" },
-          { value: "claude-3-5-haiku-latest", label: "Claude 3.5 Haiku (轻快写作)" },
-        ];
-      case "openai":
-        return [
-          { value: "gpt-4o-mini", label: "GPT-4o-mini (极快低延迟)" },
-          { value: "gpt-4o", label: "GPT-4o (深度写作)" },
-        ];
-      case "deepseek":
-        return [
-          { value: "deepseek-v4-pro", label: "DeepSeek-V4-Pro (旗舰MoE，适合中文)" },
-          { value: "deepseek-v4-flash", label: "DeepSeek-V4-Flash (极速高性价比)" },
+          { value: "glm-5.2", label: "GLM-5.2 (最新旗舰, 长程任务优化)" },
+          { value: "glm-4-flash", label: "GLM-4 Flash (极速)" },
         ];
       case "kimi":
         return [
-          { value: "moonshot-v1-8k", label: "Kimi 8k" },
-          { value: "moonshot-v1-32k", label: "Kimi 32k (适合超长视频)" },
-          { value: "moonshot-v1-128k", label: "Kimi 128k" },
+          { value: "kimi-k2.7-code", label: "Kimi K2.7 Code (最新编程&逻辑旗舰)" },
+          { value: "kimi-k2.6", label: "Kimi K2.6 (多模态与智能体稳定版)" },
+          { value: "moonshot-v1-128k", label: "Kimi 128k (长文本)" },
+        ];
+      case "deepseek":
+        return [
+          { value: "deepseek-v4-pro", label: "DeepSeek-V4-Pro (最新1.6T旗舰, 1M上下文)" },
+          { value: "deepseek-v4-flash", label: "DeepSeek-V4-Flash (极速高性价比)" },
+        ];
+      case "siliconflow":
+        return [
+          { value: "THUDM/glm-5.2", label: "GLM-5.2 (智谱最新旗舰)" },
+          { value: "MoonshotAI/kimi-k2.7-code", label: "Kimi-K2.7-Code (月之暗面最新)" },
+          { value: "Qwen/Qwen2.5-7B-Instruct", label: "Qwen2.5 7B (免费且极速)" },
+          { value: "deepseek-ai/DeepSeek-V4-Pro", label: "DeepSeek-V4-Pro (推荐)" },
         ];
       default:
         return [];
@@ -138,33 +142,23 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
             </div>
           </div>
 
-          {/* Advanced Options Toggler */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-[11px] text-text-muted hover:text-text-title flex items-center gap-1 focus:outline-none font-medium transition-colors cursor-pointer"
-          >
-            {showAdvanced ? <ChevronUp size={12} strokeWidth={1.5} /> : <ChevronDown size={12} strokeWidth={1.5} />}
-            <span>高级配置与模型选择</span>
-          </button>
-
           {/* Advanced Options Panel */}
-          {showAdvanced && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5 border-t border-border-card animate-fade-up">
-              {/* Model Provider */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5 border-t border-border-card">
+            {/* Model Provider */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] text-text-muted font-medium">选择 AI 提供商 (BYOK)</label>
                 <select
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
                   disabled={isLoading}
-                  className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner cursor-pointer"
+                  className="w-full bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2 text-xs text-text-title focus:outline-none focus:border-accent-border appearance-none cursor-pointer transition-spring pr-8 shadow-inner"
                 >
-                  <option value="gemini">Google Gemini</option>
-                  <option value="claude">Anthropic Claude</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="deepseek">DeepSeek (深度求索)</option>
-                  <option value="kimi">月之暗面 Kimi</option>
+                  <option value="deepseek" className="bg-bg-card text-text-title">DeepSeek</option>
+                  <option value="minimax" className="bg-bg-card text-text-title">MiniMax</option>
+                  <option value="glm" className="bg-bg-card text-text-title">智谱 GLM</option>
+                  <option value="kimi" className="bg-bg-card text-text-title">Kimi (月之暗面)</option>
+                  <option value="siliconflow" className="bg-bg-card text-text-title">硅基流动</option>
+                  <option value="custom" className="bg-bg-card text-text-title">自定义 (兼容 OpenAI 格式)</option>
                 </select>
               </div>
 
@@ -182,25 +176,40 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                 />
                 <datalist id="model-options">
                   {getModelsForProvider().map((m) => (
-                    <option key={m.value} value={m.value}>
+                    <option key={m.value} value={m.value} className="bg-bg-card text-text-body">
                       {m.label}
                     </option>
                   ))}
                 </datalist>
               </div>
 
-              {/* Custom API Base URL */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-text-muted font-medium">自定义 API 代理地址 (可选)</label>
-                <input
-                  type="url"
-                  value={apiBaseUrl}
-                  onChange={(e) => setApiBaseUrl(e.target.value)}
-                  disabled={isLoading}
-                  placeholder="例如: https://api.proxy.com/v1"
-                  className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner"
-                />
-              </div>
+              {/* Custom API Base URL & API Key (Only shown when provider is custom) */}
+              {provider === "custom" && (
+                <>
+                  <div className="flex flex-col gap-1.5 animate-fade-up">
+                    <label className="text-[10px] text-text-muted font-medium">自定义 API 代理地址 (可选)</label>
+                    <input
+                      type="url"
+                      value={apiBaseUrl}
+                      onChange={(e) => setApiBaseUrl(e.target.value)}
+                      disabled={isLoading}
+                      placeholder="例如: https://api.proxy.com/v1"
+                      className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 animate-fade-up">
+                    <label className="text-[10px] text-text-muted font-medium">自定义 API 密钥</label>
+                    <input
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      disabled={isLoading}
+                      placeholder="输入你的 API Key (此 Key 仅本次有效)"
+                      className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Visual Theme */}
               <div className="flex flex-col gap-1.5">
@@ -211,11 +220,11 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   disabled={isLoading}
                   className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner cursor-pointer"
                 >
-                  <option value="notion_dark">Notion 深色风格 (默认经典)</option>
-                  <option value="blue_white">蓝白商务风格 (专业大气)</option>
-                  <option value="claude_style">Claude 赭石风格 (优雅文艺)</option>
-                  <option value="cyber_tech">赛博暗黑科技风格 (酷炫偏光)</option>
-                  <option value="minimal_modern">极简现代风格 (留白气感)</option>
+                  <option value="notion_dark" className="bg-bg-card text-text-body">Notion 深色风格 (默认经典)</option>
+                  <option value="blue_white" className="bg-bg-card text-text-body">蓝白商务风格 (专业大气)</option>
+                  <option value="claude_style" className="bg-bg-card text-text-body">Claude 赭石风格 (优雅文艺)</option>
+                  <option value="cyber_tech" className="bg-bg-card text-text-body">赛博暗黑科技风格 (酷炫偏光)</option>
+                  <option value="minimal_modern" className="bg-bg-card text-text-body">极简现代风格 (留白气感)</option>
                 </select>
               </div>
 
@@ -228,8 +237,8 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   disabled={isLoading}
                   className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner cursor-pointer"
                 >
-                  <option value="zh">简体中文 (翻译整理后输出)</option>
-                  <option value="en">English (适合国际读者)</option>
+                  <option value="zh" className="bg-bg-card text-text-body">简体中文 (翻译整理后输出)</option>
+                  <option value="en" className="bg-bg-card text-text-body">English (适合国际读者)</option>
                 </select>
               </div>
 
@@ -252,8 +261,7 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   </span>
                 </div>
               )}
-            </div>
-          )}
+          </div>
         </form>
       </div>
     </div>

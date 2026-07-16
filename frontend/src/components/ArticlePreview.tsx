@@ -44,7 +44,7 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
   };
 
   return (
-    <div className="p-[6px] rounded-[24px] bg-bg-bezel border border-border-bezel shadow-[0_24px_64px_rgba(0,0,0,0.15)] h-[80vh] w-full transition-all duration-300">
+    <div className="p-[6px] rounded-[24px] bg-bg-bezel border border-border-bezel shadow-[0_24px_64px_rgba(0,0,0,0.15)] flex-1 h-full w-full transition-all duration-300 overflow-hidden min-h-0 flex flex-col">
       <div className="bg-bg-card rounded-[18px] border border-border-card flex flex-col h-full overflow-hidden">
         {/* Article Preview Header Controls */}
         <div className="p-4 border-b border-border-card flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -96,7 +96,7 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
             
             <button
               onClick={handleOpenNewTab}
-              className="px-3.5 py-1.5 text-xs font-medium text-text-body hover:text-text-title hover:bg-bg-bezel border border-border-bezel hover:border-border-bezel active:scale-[0.97] cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold bg-bg-card border border-border-card hover:bg-bg-bezel text-text-body hover:text-text-title active:scale-[0.97] rounded-full flex items-center gap-1.5 transition-spring focus:outline-none cursor-pointer shadow-sm"
             >
               <ExternalLink size={13} strokeWidth={1.5} />
               <span>新标签打开</span>
@@ -104,15 +104,15 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
             
             <button
               onClick={handleDownloadMarkdown}
-              className="px-3.5 py-1.5 text-xs font-semibold bg-bg-bezel border border-border-bezel hover:bg-bg-bezel/80 hover:border-border-bezel active:scale-[0.97] cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-xs font-semibold bg-bg-card border border-border-card hover:bg-bg-bezel text-text-body hover:text-text-title active:scale-[0.97] rounded-full flex items-center gap-1.5 transition-spring focus:outline-none cursor-pointer shadow-sm"
             >
-              <Download size={13} strokeWidth={1.5} className="text-accent-text" />
+              <Download size={13} strokeWidth={1.5} className="text-text-muted" />
               <span>下载 Markdown</span>
             </button>
             
             <button
               onClick={handleDownload}
-              className="px-3.5 py-1.5 text-xs font-semibold bg-accent-light border border-accent-border text-accent-text hover:bg-accent-light/80 hover:border-accent-border/80 rounded-full flex items-center gap-1 transition-spring focus:outline-none active:scale-[0.97] cursor-pointer shadow-sm"
+              className="px-3.5 py-1.5 text-xs font-semibold bg-accent-light border border-accent-border text-accent-text hover:bg-accent-light/80 hover:border-accent-border/80 rounded-full flex items-center gap-1.5 transition-spring focus:outline-none active:scale-[0.97] cursor-pointer shadow-sm"
             >
               <Download size={13} strokeWidth={1.5} />
               <span>下载 HTML</span>
