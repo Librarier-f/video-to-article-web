@@ -1,0 +1,172 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------
+   Vanguard Design System & Premium Reset
+   --------------------------------------------------- */
+
+:root {
+  --bg-app: #050505;
+  --bg-sidebar: #08090d;
+  --bg-card: #0c0d12;
+  --border-card: rgba(255, 255, 255, 0.03);
+  --border-bezel: rgba(255, 255, 255, 0.08);
+  --bg-bezel: rgba(255, 255, 255, 0.02);
+  --text-title: #ffffff;
+  --text-body: #f3f4f6;
+  --text-muted: #9ca3af;
+  --accent: #c084fc; /* Deep purple/pink-ish in dark mode */
+  --accent-light: rgba(168, 85, 247, 0.06);
+  --accent-border: rgba(168, 85, 247, 0.15);
+  --accent-text: #c084fc;
+  --glow-color-1: rgba(168, 85, 247, 0.1);
+  --glow-color-2: rgba(16, 185, 129, 0.05);
+}
+
+.light {
+  --bg-app: #f1f2f3;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --border-card: #e3e5e7;
+  --border-bezel: #e3e5e7;
+  --bg-bezel: #f6f7f8;
+  --text-title: #18191c;
+  --text-body: #18191c;
+  --text-muted: #61666d;
+  --accent: #fa7299; /* Bilibili Pink */
+  --accent-light: rgba(250, 114, 153, 0.08);
+  --accent-border: rgba(250, 114, 153, 0.2);
+  --accent-text: #fa7299;
+  --glow-color-1: rgba(0, 174, 236, 0.1); /* Bili Blue */
+  --glow-color-2: rgba(250, 114, 153, 0.1); /* Bili Pink */
+}
+
+@theme {
+  --font-serif: "Noto Serif SC", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", "Noto Sans SC", -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "SFMono-Regular", Menlo, monospace;
+  
+  --color-bg-app: var(--bg-app);
+  --color-bg-sidebar: var(--bg-sidebar);
+  --color-bg-card: var(--bg-card);
+  --color-border-card: var(--border-card);
+  --color-border-bezel: var(--border-bezel);
+  --color-bg-bezel: var(--bg-bezel);
+  --color-text-title: var(--text-title);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-accent-theme: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+}
+
+html, body {
+  background-color: var(--bg-app);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+/* Scrollbar System */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-bezel);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  opacity: 0.3;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Custom Cubic Bezier Spring Transition Easing */
+.ease-spring {
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.transition-spring {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  transition-duration: 700ms;
+}
+
+/* Glow mesh animations */
+@keyframes meshFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+.animate-mesh-slow {
+  animation: meshFloat 25s infinite ease-in-out;
+}
+
+.animate-mesh-slower {
+  animation: meshFloat 35s infinite ease-in-out reverse;
+}
+
+/* Entrance Animations */
+@keyframes fadeUpReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUpReveal 800ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Slide in drawer */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideInRight 500ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* physical film grain texture overlay */
+.noise-grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-repeat: repeat;
+  opacity: 0.015;
+  background-image: url('data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZmlsdGVyIGlkPSJub2lzZUZpbHRlciI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNjUiIG51bU9jdGF2ZXM9IjMiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbm9pc2VGaWx0ZXIpIi8+PC9zdmc+');
+}

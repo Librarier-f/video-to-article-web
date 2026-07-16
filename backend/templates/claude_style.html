@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink-black: #1a1a1a;
+      --ink-gray: #4a4a4a;
+      --ink-light: #8a8a8a;
+      --paper: #faf8f5;
+      --paper-warm: #f5f0e8;
+      --accent-purple: #c96442;
+      --accent-teal: #0d9488;
+      --shadow-soft: 0 4px 30px rgba(0,0,0,0.06);
+      --shadow-medium: 0 8px 40px rgba(0,0,0,0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    ::selection {
+      background: var(--accent-purple);
+      color: white;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--paper);
+      color: var(--ink-black);
+      line-height: 1.9;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.025;
+      z-index: 1000;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 4rem 2rem;
+      background: linear-gradient(180deg, var(--paper-warm) 0%, var(--paper) 100%);
+      position: relative;
+    }
+
+    .overline {
+      font-size: 0.75rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--accent-purple);
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease forwards;
+      animation-delay: 0.2s;
+    }
+
+    .hero h1 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(2.2rem, 7vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease forwards;
+      animation-delay: 0.4s;
+    }
+
+    .hero h1 .highlight {
+      color: var(--accent-purple);
+    }
+
+    .hero-subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: var(--ink-gray);
+      max-width: 480px;
+      margin-bottom: 3rem;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease forwards;
+      animation-delay: 0.6s;
+    }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--ink-light);
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      opacity: 0;
+      animation: fadeIn 1s ease forwards;
+      animation-delay: 1s;
+    }
+
+    .scroll-hint svg {
+      animation: bounce 2s ease infinite;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(8px); }
+    }
+
+    /* Container */
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* Intro */
+    .intro {
+      padding: 6rem 0 4rem;
+    }
+
+    .intro p {
+      font-size: 1.1rem;
+      line-height: 2;
+      color: var(--ink-gray);
+      text-align: justify;
+    }
+
+    .intro p:first-of-type::first-letter {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 3.2rem;
+      float: left;
+      line-height: 1;
+      margin-right: 0.5rem;
+      margin-top: 0.15rem;
+      color: var(--accent-purple);
+    }
+
+    /* Section Header */
+    .section-header {
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      color: var(--accent-purple);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .section-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 0;
+      width: 50px;
+      height: 3px;
+      background: var(--accent-purple);
+    }
+
+    /* Methods */
+    .method {
+      background: white;
+      border-radius: 8px;
+      padding: 2.5rem;
+      box-shadow: var(--shadow-soft);
+      margin: 2.5rem 0;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .method:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-medium);
+    }
+
+    .method-number {
+      position: absolute;
+      top: -0.5rem;
+      right: 1.5rem;
+      font-family: 'Noto Serif SC', serif;
+      font-size: 6rem;
+      font-weight: 700;
+      color: var(--accent-purple);
+      opacity: 0.06;
+      line-height: 1;
+    }
+
+    .method-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .method-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-purple), #d4826a);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .method-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: white;
+      fill: none;
+    }
+
+    .method h3 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: var(--ink-black);
+    }
+
+    .method p {
+      color: var(--ink-gray);
+      line-height: 1.85;
+      font-size: 0.98rem;
+    }
+
+    .method .highlight-box {
+      background: linear-gradient(135deg, var(--paper-warm), var(--paper));
+      border-left: 3px solid var(--accent-purple);
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .method .highlight-box p {
+      margin: 0;
+      font-size: 0.95rem;
+    }
+
+    /* Quote */
+    .quote-block {
+      background: linear-gradient(135deg, var(--paper-warm) 0%, var(--paper) 100%);
+      padding: 3rem 2.5rem;
+      margin: 4rem 0;
+      position: relative;
+      text-align: center;
+      border-left: 4px solid var(--accent-teal);
+    }
+
+    .quote-block blockquote {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.1rem, 3vw, 1.4rem);
+      font-weight: 500;
+      line-height: 1.7;
+      color: var(--ink-black);
+      font-style: normal;
+    }
+
+    .quote-block cite {
+      display: block;
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--ink-light);
+      font-style: normal;
+      letter-spacing: 0.1em;
+    }
+
+    /* Summary */
+    .summary {
+      padding: 5rem 2rem;
+      text-align: center;
+      background: var(--paper-warm);
+    }
+
+    .summary h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.3rem, 3vw, 1.8rem);
+      font-weight: 600;
+      margin-bottom: 2rem;
+    }
+
+    .summary p {
+      max-width: 520px;
+      margin: 0 auto 1.5rem;
+      color: var(--ink-gray);
+      line-height: 1.9;
+    }
+
+    .takeaway {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent-purple), #d4826a);
+      color: white;
+      padding: 1rem 2.5rem;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      margin-top: 1.5rem;
+      font-weight: 500;
+      border-radius: 4px;
+    }
+
+    /* Footer */
+    .footer {
+      padding: 3rem 2rem;
+      text-align: center;
+      border-top: 1px solid #eee;
+    }
+
+    .footer p {
+      font-size: 0.75rem;
+      color: var(--ink-light);
+      letter-spacing: 0.1em;
+    }
+
+    /* Reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .method {
+        padding: 2rem 1.5rem;
+      }
+
+      .method-number {
+        font-size: 4rem;
+        top: -0.25rem;
+      }
+    }
+    
+    /* Layout enhancements */
+    .video-info-badge {
+      margin-top: 2rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.5rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 30px;
+      color: inherit;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      z-index: 10;
+      position: relative;
+    }
+    .video-info-badge:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+    
+    /* Ensure reveal anim compatibility */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <span class="overline">{{ platform }}</span>
+    <h1>{{ title }}</h1>
+    <p class="hero-subtitle">由 {{ author }} 发布于 {{ publish_date }} | 时长 {{ duration_formatted }}</p>
+    
+    <a href="{{ video_url }}" target="_blank" class="video-info-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+      </svg>
+      观看原视频
+    </a>
+  </header>
+
+  <article class="container" style="padding-bottom: 8rem;">
+    <div style="padding-top: 4rem;">
+      {{ article_content }}
+    </div>
+  </article>
+
+  <footer style="padding: 3rem 0; text-align: center; border-top: 1px solid var(--border, rgba(255,255,255,0.1)); opacity: 0.8; font-size: 0.8rem;">
+    <p>⚠️ 重要提示：本文内容基于视频字幕整理，仅供个人学习研究使用。发布前请注意标注视频来源以尊重原作者版权。</p>
+  </footer>
+
+  <script>
+    const revealElements = document.querySelectorAll('.reveal');
+    const revealOnScroll = () => {
+      const windowHeight = window.innerHeight;
+      revealElements.forEach(el => {
+        const elementTop = el.getBoundingClientRect().top;
+        if (elementTop < windowHeight - 100) {
+          el.classList.add('visible');
+        }
+      });
+    };
+    window.addEventListener('scroll', revealOnScroll);
+    window.addEventListener('load', revealOnScroll);
+  </script>
+</body>
+</html>
