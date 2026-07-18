@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
-import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check } from "lucide-react";
-import { getDownloadUrl, getMarkdownDownloadUrl } from "../utils/api";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check, Bot, Lightbulb, ChevronDown } from "lucide-react";
+import { getDownloadUrl, getMarkdownDownloadUrl, exportToIma } from "../utils/api";
 import type { ArticleDetailResponseData } from "../utils/api";
 
 interface ArticlePreviewProps {
@@ -10,8 +10,29 @@ interface ArticlePreviewProps {
 
 export default function ArticlePreview({ article, onRefresh }: ArticlePreviewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [activeTab, setActiveTab] = useState<"html" | "markdown">("html");
+  const [activeTab, setActiveTab] = useState<"html" | "markdown" | "anki">("html");
   const [copied, setCopied] = useState(false);
+  const [isExportingIma, setIsExportingIma] = useState(false);
+
+  const parsedCards = useMemo(() => {
+    if (!article.anki_csv) return [];
+    try {
+      // New JSON format
+      return JSON.parse(article.anki_csv);
+    } catch (e) {
+      // Fallback for old CSV format
+      const lines = article.anki_csv.split('\n');
+      const cards = [];
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const parts = line.split(',');
+        if (parts.length >= 2) {
+          cards.push({ q: parts[0], a: parts.slice(1).join(',') });
+        }
+      }
+      return cards;
+    }
+  }, [article.anki_csv]);
 
   // Trigger download endpoint
   const handleDownload = () => {
@@ -40,6 +61,30 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
       setTimeout(() => setCopied(false), 1500);
     } catch (err) {
       console.error("Failed to copy text: ", err);
+    }
+  };
+
+
+  const handleExportToIma = async () => {
+    const clientId = localStorage.getItem("byok_ima_client_id");
+    const apiKey = localStorage.getItem("byok_ima_key");
+    if (!clientId || !apiKey) {
+      alert("请先点击右上角⚙️图标配置您的 IMA Client ID 和 API Key！");
+      return;
+    }
+    try {
+      setIsExportingIma(true);
+      const kbId = localStorage.getItem("byok_ima_kb_id") || undefined;
+      await exportToIma(article.id, kbId);
+      if (kbId) {
+        alert("✅ 成功保存笔记并关联到 IMA 知识库！请在您的 IMA 客户端查看。");
+      } else {
+        alert("✅ 成功保存笔记到 IMA！请在您的 IMA 客户端查看。");
+      }
+    } catch (err: any) {
+      alert(err.message || "保存到 IMA 失败");
+    } finally {
+      setIsExportingIma(false);
     }
   };
 
@@ -81,6 +126,17 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
               <FileCode size={11} strokeWidth={1.5} />
               <span>Markdown</span>
             </button>
+            <button
+              onClick={() => setActiveTab("anki")}
+              className={`px-3.5 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-300 flex items-center gap-1.5 focus:outline-none active:scale-[0.97] cursor-pointer ${
+                activeTab === "anki"
+                  ? "bg-bg-card text-text-title shadow-sm border border-border-card/20"
+                  : "text-text-muted hover:text-text-title"
+              }`}
+            >
+              <Lightbulb size={11} strokeWidth={1.5} />
+              <span>知识卡片</span>
+            </button>
           </div>
           
           <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto justify-end">
@@ -94,6 +150,7 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
               </button>
             )}
             
+
             <button
               onClick={handleOpenNewTab}
               className="px-3.5 py-1.5 text-xs font-semibold bg-bg-card border border-border-card hover:bg-bg-bezel text-text-body hover:text-text-title active:scale-[0.97] rounded-full flex items-center gap-1.5 transition-spring focus:outline-none cursor-pointer shadow-sm"
@@ -103,13 +160,28 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
             </button>
             
             <button
+              onClick={handleExportToIma}
+              disabled={isExportingIma}
+              className={`px-3.5 py-1.5 text-xs font-semibold bg-bg-card border border-border-card text-text-body hover:text-text-title rounded-full flex items-center gap-1.5 transition-spring focus:outline-none shadow-sm ${
+                isExportingIma ? "opacity-50 cursor-not-allowed" : "hover:bg-bg-bezel active:scale-[0.97] cursor-pointer"
+              }`}
+            >
+              {isExportingIma ? (
+                <RefreshCw size={13} strokeWidth={1.5} className="animate-spin text-blue-500" />
+              ) : (
+                <Bot size={13} strokeWidth={1.5} className="text-blue-500" />
+              )}
+              <span>{isExportingIma ? "保存中..." : "保存到 IMA"}</span>
+            </button>
+            
+            <button
               onClick={handleDownloadMarkdown}
               className="px-3.5 py-1.5 text-xs font-semibold bg-bg-card border border-border-card hover:bg-bg-bezel text-text-body hover:text-text-title active:scale-[0.97] rounded-full flex items-center gap-1.5 transition-spring focus:outline-none cursor-pointer shadow-sm"
             >
               <Download size={13} strokeWidth={1.5} className="text-text-muted" />
               <span>下载 Markdown</span>
             </button>
-            
+
             <button
               onClick={handleDownload}
               className="px-3.5 py-1.5 text-xs font-semibold bg-accent-light border border-accent-border text-accent-text hover:bg-accent-light/80 hover:border-accent-border/80 rounded-full flex items-center gap-1.5 transition-spring focus:outline-none active:scale-[0.97] cursor-pointer shadow-sm"
@@ -130,6 +202,35 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
               sandbox="allow-scripts allow-popups"
               className="w-full h-full rounded-xl border border-border-card bg-bg-card"
             />
+          ) : activeTab === "anki" ? (
+            <div className="relative flex-1 rounded-xl border border-border-card bg-bg-bezel flex flex-col overflow-y-auto p-4 md:p-8 shadow-inner custom-scrollbar">
+              <div className="max-w-2xl w-full mx-auto space-y-3 pb-10">
+                {parsedCards.length > 0 ? (
+                  parsedCards.map((card: any, idx: number) => (
+                    <details 
+                      key={idx} 
+                      className="group bg-bg-card border border-border-card rounded-xl shadow-sm overflow-hidden transition-all duration-300 open:pb-4"
+                    >
+                      <summary className="flex items-center justify-between p-4 cursor-pointer select-none text-sm font-medium text-text-title hover:bg-bg-bezel/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                        <div className="flex items-start gap-3">
+                          <span className="text-accent-text font-serif opacity-80 mt-0.5">Q.</span>
+                          <span>{card.q}</span>
+                        </div>
+                        <ChevronDown size={16} className="text-text-muted transition-transform duration-300 group-open:-rotate-180 flex-shrink-0 ml-4" />
+                      </summary>
+                      <div className="px-4 pt-2 pb-1 text-xs text-text-body leading-relaxed border-t border-border-card/50 mt-1 flex gap-3 animate-fade-down animate-duration-200">
+                        <span className="text-emerald-500 font-serif opacity-80 select-none">A.</span>
+                        <div className="flex-1 whitespace-pre-wrap">{card.a}</div>
+                      </div>
+                    </details>
+                  ))
+                ) : (
+                  <div className="text-text-muted text-xs p-10 flex flex-col items-center justify-center opacity-70 h-full">
+                    <span>暂无知识卡片数据</span>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="relative flex-1 rounded-xl border border-border-card bg-bg-bezel flex flex-col overflow-hidden shadow-inner">
               {/* Floating Copy Button inside viewport */}

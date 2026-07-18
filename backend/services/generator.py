@@ -326,6 +326,23 @@ async def generate_article_task(
             body_markdown = html_to_markdown(article_html)
             final_markdown = md_header + toc_markdown + body_markdown
             
+            # Step 4: Generate Interactive Q&A Cards (stored in anki_csv field)
+            update_task_progress(task_id, "rendering", 95.0, "正在生成知识问答卡片...", "正在提取核心概念生成互动问答卡片...", db)
+            
+            anki_prompt = (
+                f"请从以下文章内容中提取 5-10 个最核心的概念、事实或重要结论，生成用于互动学习的问答卡片数据。\n"
+                f"⚠️ 极其重要：必须严格以 JSON 数组格式输出，每个对象包含 'q' (问题) 和 'a' (答案) 两个字段。\n"
+                f"例如：\n"
+                f'[\n  {{"q": "什么是XXX？", "a": "XXX是..."}}\n]\n'
+                f"注意：只返回合法的 JSON 数组本身，绝对不要包含任何 markdown 包裹符号（不要写 ```json）或其他多余的解释文字！\n"
+                f"内容：\n{final_markdown[:4000]}"
+            )
+            anki_csv, usage = await call_llm_api(provider, model, anki_prompt, "你是一个擅长提炼核心知识的卡片生成系统。严格输出 JSON。", keys, api_base_url)
+            total_tokens += usage.get("total_tokens", 0) if "total_tokens" in usage else (usage.get("totalTokens", 0) if "totalTokens" in usage else 0)
+            anki_csv = anki_csv.replace("```json", "").replace("```", "").strip()
+            
+            mermaid_code = ""
+            
             # Save Article to Database
             new_article = Article(
                 task_id=task_id,
@@ -336,7 +353,9 @@ async def generate_article_task(
                 thumbnail_url=thumbnail_url if thumbnail_url else "",
                 video_url=video_url,
                 html_content=final_html,
-                markdown_content=final_markdown
+                markdown_content=final_markdown,
+                anki_csv=anki_csv,
+                mermaid_code=mermaid_code
             )
             db.add(new_article)
             db.commit()

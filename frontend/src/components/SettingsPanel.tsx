@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Key, Eye, EyeOff, Save, Check, X } from "lucide-react";
+import { Key, Eye, EyeOff, Save, Check, X, Link, RefreshCw } from "lucide-react";
+import { fetchImaKnowledgeBases } from "../utils/api";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -8,16 +9,22 @@ interface SettingsPanelProps {
 export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [minimaxKey, setMinimaxKey] = useState("");
   const [glmKey, setGlmKey] = useState("");
-  const [kimiKey, setKimiKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
   const [deepseekKey, setDeepseekKey] = useState("");
-  const [siliconflowKey, setSiliconflowKey] = useState("");
+  const [kimiKey, setKimiKey] = useState("");
+  const [imaClientId, setImaClientId] = useState("");
+  const [imaKey, setImaKey] = useState("");
+  const [imaKbId, setImaKbId] = useState("");
+  const [kbList, setKbList] = useState<{ knowledge_base_id: string; name: string }[]>([]);
+  const [isFetchingKbs, setIsFetchingKbs] = useState(false);
 
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
     minimax: false,
     glm: false,
-    kimi: false,
+    openai: false,
     deepseek: false,
-    siliconflow: false,
+    kimi: false,
+    ima: false,
   });
 
   const [saved, setSaved] = useState(false);
@@ -25,17 +32,23 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   useEffect(() => {
     setMinimaxKey(localStorage.getItem("byok_minimax_key") || "");
     setGlmKey(localStorage.getItem("byok_glm_key") || "");
-    setKimiKey(localStorage.getItem("byok_kimi_key") || "");
+    setOpenaiKey(localStorage.getItem("byok_openai_key") || "");
     setDeepseekKey(localStorage.getItem("byok_deepseek_key") || "");
-    setSiliconflowKey(localStorage.getItem("byok_siliconflow_key") || "");
+    setKimiKey(localStorage.getItem("byok_kimi_key") || "");
+    setImaClientId(localStorage.getItem("byok_ima_client_id") || "");
+    setImaKey(localStorage.getItem("byok_ima_key") || "");
+    setImaKbId(localStorage.getItem("byok_ima_kb_id") || "");
   }, []);
 
   const handleSave = () => {
     localStorage.setItem("byok_minimax_key", minimaxKey.trim());
     localStorage.setItem("byok_glm_key", glmKey.trim());
-    localStorage.setItem("byok_kimi_key", kimiKey.trim());
+    localStorage.setItem("byok_openai_key", openaiKey.trim());
     localStorage.setItem("byok_deepseek_key", deepseekKey.trim());
-    localStorage.setItem("byok_siliconflow_key", siliconflowKey.trim());
+    localStorage.setItem("byok_kimi_key", kimiKey.trim());
+    localStorage.setItem("byok_ima_client_id", imaClientId.trim());
+    localStorage.setItem("byok_ima_key", imaKey.trim());
+    localStorage.setItem("byok_ima_kb_id", imaKbId);
 
     setSaved(true);
     setTimeout(() => {
@@ -51,17 +64,16 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const providers = [
     { id: "minimax", label: "MiniMax API Key", val: minimaxKey, setVal: setMinimaxKey },
     { id: "glm", label: "智谱 GLM API Key", val: glmKey, setVal: setGlmKey },
-    { id: "kimi", label: "月之暗面 Kimi API Key", val: kimiKey, setVal: setKimiKey },
+    { id: "openai", label: "OpenAI API Key", val: openaiKey, setVal: setOpenaiKey },
     { id: "deepseek", label: "DeepSeek API Key", val: deepseekKey, setVal: setDeepseekKey },
-    { id: "siliconflow", label: "硅基流动 API Key", val: siliconflowKey, setVal: setSiliconflowKey },
+    { id: "kimi", label: "月之暗面 Kimi API Key", val: kimiKey, setVal: setKimiKey },
   ];
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 transition-all duration-300">
-      <div className="p-[6px] rounded-[24px] bg-bg-bezel border border-border-bezel shadow-[0_24px_64px_rgba(0,0,0,0.4)] w-full max-w-md animate-fade-up">
+      <div className="p-[6px] rounded-[24px] bg-bg-bezel border border-border-bezel shadow-[0_24px_64px_rgba(0,0,0,0.4)] w-full max-w-xl animate-fade-up">
         <div className="bg-bg-card rounded-[18px] p-6 border border-border-card backdrop-blur-2xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] relative">
           
-          {/* Close Button on top-right */}
           <button
             onClick={onClose}
             className="absolute right-4 top-4 p-1.5 text-text-muted hover:text-text-title rounded-full hover:bg-bg-bezel transition-spring focus:outline-none cursor-pointer"
@@ -79,7 +91,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             请输入您的个人大模型 API Key。这些密钥将<strong>仅存在您的浏览器本地 (LocalStorage) </strong>。每次发起任务时仅在 Header 中临时传输给后端，后端服务器不保存任何 Key，保证隐私安全。
           </p>
 
-          <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+          <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
             {providers.map((p) => (
               <div key={p.id} className="flex flex-col gap-1.5">
                 <label className="text-[10px] text-text-muted font-semibold tracking-wide">
@@ -103,6 +115,92 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                 </div>
               </div>
             ))}
+            
+            <div className="pt-4 mt-2 border-t border-border-card">
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-[10px] text-text-muted font-semibold tracking-wide">IMA Client ID</label>
+                <a href="https://ima.qq.com/agent-interface" target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent-text hover:underline flex items-center">
+                  <Link size={10} className="mr-1" /> 获取凭证
+                </a>
+              </div>
+              <input
+                type="text"
+                value={imaClientId}
+                onChange={(e) => setImaClientId(e.target.value)}
+                className="w-full bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2 text-xs text-text-title placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border transition-spring shadow-inner"
+                placeholder="您的 IMA Client ID"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-text-muted font-semibold tracking-wide mb-1.5 block">IMA API Key</label>
+              <input
+                type={showKeys.ima ? "text" : "password"}
+                value={imaKey}
+                onChange={(e) => setImaKey(e.target.value)}
+                className="w-full bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2 text-xs text-text-title placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border transition-spring shadow-inner"
+                placeholder="您的 IMA API Key"
+              />
+            </div>
+            
+            {(imaClientId && imaKey) ? (
+              <div className="pt-2">
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-[10px] text-text-muted font-semibold tracking-wide">默认保存到的知识库</label>
+                  <button 
+                    onClick={async () => {
+                      setIsFetchingKbs(true);
+                      try {
+                        const kbs = await fetchImaKnowledgeBases();
+                        setKbList(kbs);
+                      } catch (err: any) {
+                        const errMsg = err.message || "";
+                        if (errMsg.includes("skill auth failed") || errMsg.includes("200002")) {
+                          alert("当前 API 密钥不支持获取知识库列表（缺少开放权限）。\n但这不影响将文章直接保存到「个人笔记」，您可以直接保存！");
+                        } else {
+                          alert(errMsg || "获取知识库失败");
+                        }
+                      } finally {
+                        setIsFetchingKbs(false);
+                      }
+                    }}
+                    className="text-[10px] text-accent-text hover:underline flex items-center cursor-pointer"
+                  >
+                    <RefreshCw size={10} className={`mr-1 ${isFetchingKbs ? "animate-spin" : ""}`} /> 刷新列表
+                  </button>
+                </div>
+                <select
+                  value={imaKbId}
+                  onChange={(e) => setImaKbId(e.target.value)}
+                  onClick={async () => {
+                     if (kbList.length === 0 && !isFetchingKbs) {
+                         setIsFetchingKbs(true);
+                         try {
+                           const kbs = await fetchImaKnowledgeBases();
+                           setKbList(kbs);
+                         } catch (err: any) {
+                           const errMsg = err.message || "";
+                           if (errMsg.includes("skill auth failed") || errMsg.includes("200002")) {
+                             alert("当前 API 密钥不支持获取知识库列表（缺少开放权限）。\n但这不影响将文章直接保存到「个人笔记」，您可以直接保存！");
+                           } else {
+                             alert(errMsg || "获取知识库失败");
+                           }
+                         }
+                         setIsFetchingKbs(false);
+                     }
+                  }}
+                  className="w-full bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2 text-xs text-text-title focus:outline-none focus:border-accent-border transition-spring shadow-inner appearance-none cursor-pointer"
+                >
+                  <option value="">(不关联知识库，仅存为笔记)</option>
+                  {kbList.map(kb => (
+                    <option key={kb.knowledge_base_id} value={kb.knowledge_base_id}>{kb.name}</option>
+                  ))}
+                  {imaKbId && !kbList.find(k => k.knowledge_base_id === imaKbId) && (
+                    <option value={imaKbId}>已保存的知识库 ({imaKbId})</option>
+                  )}
+                </select>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border-card">

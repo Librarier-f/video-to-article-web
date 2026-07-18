@@ -1,0 +1,26 @@
+﻿version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+    container_name: video_article_backend
+    restart: unless-stopped
+    volumes:
+      # Mount the database file so it persists across container restarts
+      - ./backend/app.db:/app/app.db
+    # We do not need to expose ports to host if accessed via frontend nginx proxy
+    # But useful for direct API access if needed:
+    # ports:
+    #   - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: video_article_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+

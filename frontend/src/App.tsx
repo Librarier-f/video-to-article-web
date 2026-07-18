@@ -44,6 +44,7 @@ export default function App() {
   const [showMobileHistory, setShowMobileHistory] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize theme
   useEffect(() => {
@@ -140,6 +141,7 @@ export default function App() {
     setError(null);
     setSelectedArticleId(null);
     setSelectedArticle(null);
+    setIsSubmitting(true);
 
     try {
       const task = await createConvertTask(payload);
@@ -150,12 +152,15 @@ export default function App() {
         } catch {
           setError("任务创建失败：可能 API Key 未配置。");
         }
+        setIsSubmitting(false);
         return;
       }
       setActiveTasks((prev) => [...prev, task]);
       setSelectedActiveTaskId(task.id);
     } catch (err: any) {
       setError(err.message || "无法创建任务，请重试。");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -356,7 +361,7 @@ export default function App() {
             <VideoInput
               onSubmit={handleCreateTask}
               onOpenSettings={() => setShowSettings(true)}
-              isLoading={false}
+              isLoading={isSubmitting}
             />
 
             {/* Direct Setup Wizard Prompt */}

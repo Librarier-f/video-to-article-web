@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Sparkles, ChevronDown, ChevronUp, Settings } from "lucide-react";
+import { Settings, Link, Sparkles } from "lucide-react";
 import type { TaskCreatePayload } from "../utils/api";
 
 interface VideoInputProps {

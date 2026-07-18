@@ -37,6 +37,8 @@ class Article(Base):
     video_url = Column(String(500), nullable=False)
     html_content = Column(Text, nullable=False)
     markdown_content = Column(Text, nullable=True)
+    anki_csv = Column(Text, nullable=True)
+    mermaid_code = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationship back to task

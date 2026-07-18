@@ -10,6 +10,12 @@ from database import engine, Base, get_db
 from models import Task, Article
 from schemas import TaskCreate, TaskResponse, ArticleResponse, ArticleDetailResponse
 from services.generator import generate_article_task
+from services.ima_service import export_article_to_ima, get_knowledge_bases
+from pydantic import BaseModel
+
+class ExportImaRequest(BaseModel):
+    knowledge_base_id: Optional[str] = None
+
 
 # Initialize database tables on startup
 Base.metadata.create_all(bind=engine)
@@ -22,6 +28,10 @@ try:
         columns = [row[1] for row in cursor.fetchall()]
         if "markdown_content" not in columns:
             conn.execute(text("ALTER TABLE articles ADD COLUMN markdown_content TEXT"))
+        if "anki_csv" not in columns:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN anki_csv TEXT"))
+        if "mermaid_code" not in columns:
+            conn.execute(text("ALTER TABLE articles ADD COLUMN mermaid_code TEXT"))
             
         cursor = conn.execute(text("PRAGMA table_info(tasks)"))
         task_columns = [row[1] for row in cursor.fetchall()]
@@ -36,7 +46,11 @@ app = FastAPI(title="Video to Article BYOK Web API")
 # Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:5174", "http://127.0.0.1:5174",
+        "http://localhost:5175", "http://127.0.0.1:5175"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -238,3 +252,51 @@ def download_article_markdown(article_id: int, db: Session = Depends(get_db)):
         "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
     }
     return Response(content=markdown_content, media_type="text/markdown", headers=headers)
+
+@app.get("/api/ima/knowledge-bases")
+async def list_knowledge_bases(
+    x_ima_client_id: Optional[str] = Header(None, alias="X-Ima-Client-Id"),
+    x_ima_key: Optional[str] = Header(None, alias="X-Ima-Key")
+):
+    if not x_ima_client_id or not x_ima_key:
+        raise HTTPException(status_code=400, detail="未检测到 IMA Client ID 或 API Key。")
+    try:
+        kbs = await get_knowledge_bases(x_ima_client_id, x_ima_key)
+        return {"success": True, "data": kbs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/export/ima/{article_id}")
+async def export_to_ima(
+    article_id: int,
+    request: ExportImaRequest = None,
+    x_ima_client_id: Optional[str] = Header(None, alias="X-Ima-Client-Id"),
+    x_ima_key: Optional[str] = Header(None, alias="X-Ima-Key"),
+    db: Session = Depends(get_db)
+):
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+        
+    if not x_ima_client_id or not x_ima_key:
+        raise HTTPException(status_code=400, detail="未检测到 IMA Client ID 或 API Key。请先在设置中配置。")
+        
+    markdown_content = article.markdown_content
+    if not markdown_content:
+        markdown_content = regenerate_markdown(article)
+        article.markdown_content = markdown_content
+        db.commit()
+        
+    kb_id = request.knowledge_base_id if request else None
+        
+    try:
+        result = await export_article_to_ima(
+            client_id=x_ima_client_id,
+            api_key=x_ima_key,
+            title=article.title,
+            markdown_content=markdown_content,
+            kb_id=kb_id
+        )
+        return {"success": True, "note_id": result.get("note_id")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

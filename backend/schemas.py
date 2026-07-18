@@ -45,3 +45,5 @@ class ArticleResponse(BaseModel):
 class ArticleDetailResponse(ArticleResponse):
     html_content: str
     markdown_content: Optional[str] = None
+    anki_csv: Optional[str] = None
+    mermaid_code: Optional[str] = None
