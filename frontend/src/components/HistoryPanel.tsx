@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Trash2, Plus, Search, Video, Clock } from "lucide-react";
+import { FileText, Trash2, Plus, Search, Video, Clock, BookOpen } from "lucide-react";
 import type { ArticleResponseData, TaskResponseData } from "../utils/api";
 
 interface HistoryPanelProps {
@@ -7,8 +7,10 @@ interface HistoryPanelProps {
   activeTasks?: TaskResponseData[];
   selectedArticleId: number | null;
   selectedActiveTaskId: string | null;
+  isThemeManualSelected?: boolean;
   onSelectArticle: (id: number) => void;
   onSelectActiveTask: (id: string) => void;
+  onSelectThemeManual: () => void;
   onDeleteArticle: (id: number) => void;
   onNewTask: () => void;
 }
@@ -18,8 +20,10 @@ export default function HistoryPanel({
   activeTasks = [],
   selectedArticleId,
   selectedActiveTaskId,
+  isThemeManualSelected = false,
   onSelectArticle,
   onSelectActiveTask,
+  onSelectThemeManual,
   onDeleteArticle,
   onNewTask,
 }: HistoryPanelProps) {
@@ -114,6 +118,33 @@ export default function HistoryPanel({
 
         {/* History Items list */}
         <div className="p-3 space-y-1">
+          {/* Default Specimen Book Item */}
+          <div
+            onClick={onSelectThemeManual}
+            className={`group flex items-start gap-2.5 p-3 rounded-2xl cursor-pointer relative border transition-spring mb-2.5 ${
+              isThemeManualSelected
+                ? "bg-accent-theme/20 border-accent-border shadow-[0_0_12px_rgba(15,98,254,0.15)]"
+                : "bg-accent-theme/5 border-accent-border/30 hover:bg-accent-theme/10 hover:border-accent-border/60"
+            }`}
+          >
+            <div className="flex-shrink-0 mt-0.5 text-accent-text">
+              <BookOpen size={15} strokeWidth={2} />
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <h4 className="text-xs font-bold text-text-title truncate">
+                  视觉排版主题设计手册
+                </h4>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 bg-accent-theme text-white rounded-md font-semibold flex-shrink-0">
+                  内置范例
+                </span>
+              </div>
+              <p className="text-[10px] text-text-muted leading-tight">
+                全屏翻页浏览 5 套高端排版风格导出示例
+              </p>
+            </div>
+          </div>
           {filteredArticles.length === 0 ? (
           <div className="text-center text-xs text-text-muted py-12">
             {search ? "没有匹配的历史记录" : "暂无历史记录"}

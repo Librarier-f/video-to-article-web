@@ -6,36 +6,44 @@
   <title>{{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --void-black: #050508;
-      --deep-space: #0a0a0f;
-      --neural-gray: #12121a;
-      --cyber-dark: #1a1a2e;
-      --matrix-green: #00ff41;
-      --neon-cyan: #00f0ff;
-      --plasma-purple: #b24bf3;
-      --alert-red: #ff0055;
-      --data-white: #e0e0e0;
-      --muted-gray: #6b6b7b;
-      --glow-cyan: 0 0 20px rgba(0, 240, 255, 0.5);
-      --glow-green: 0 0 20px rgba(0, 255, 65, 0.5);
+      /* Industrial Terminal / Brutalist Cyber Aesthetics */
+      --bg:             #0a0a0c;
+      --bg-alt:         #121216;
+      --bg-card:        #18181f;
+      --fg:             #e2e8f0;
+      --fg-muted:       #718096;
+      --border:         #2d3748;
+      --border-accent:  #4a5568;
+      
+      --accent-orange:  #ff5500; /* Industrial Neon Orange */
+      --accent-cyan:    #00f0ff; /* Terminal Neon Cyan */
+      
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Noto Sans SC', system-ui, sans-serif;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    html { scroll-behavior: smooth; }
+    ::selection { background: var(--accent-orange); color: #000000; }
 
-    body {
-      font-family: 'Rajdhani', 'Noto Sans SC', sans-serif;
-      background: var(--deep-space);
-      color: var(--data-white);
-      line-height: 1.8;
-      overflow-x: hidden;
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Grid Background */
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.75;
+      font-size: 16px;
+    }
+
+    /* Subtle Faint Grid Line Background overlay */
     body::before {
       content: '';
       position: fixed;
@@ -45,442 +53,346 @@
       height: 100%;
       pointer-events: none;
       z-index: 0;
-      background:
-        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
       background-size: 40px 40px;
     }
 
-    /* Scan Line */
-    body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 1001;
-      background: repeating-linear-gradient(
-        0deg,
-        rgba(0, 0, 0, 0.1) 0px,
-        rgba(0, 0, 0, 0.1) 1px,
-        transparent 1px,
-        transparent 2px
-      );
-      opacity: 0.3;
-    }
-
-    ::selection { background: var(--neon-cyan); color: var(--void-black); }
-
     /* Hero */
     .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      padding: 4rem 2rem;
       position: relative;
       z-index: 1;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(178, 75, 243, 0.15) 0%, transparent 70%);
-      pointer-events: none;
+      padding: 5.5rem 2rem 3.5rem;
+      max-width: 800px;
+      margin: 0 auto;
+      border-bottom: 2px solid var(--border);
     }
 
     .hero-tag {
-      display: inline-block;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.7rem;
-      letter-spacing: 0.3em;
-      color: var(--neon-cyan);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #000000;
+      background: var(--accent-cyan);
       text-transform: uppercase;
-      padding: 0.5rem 1.5rem;
-      border: 1px solid var(--neon-cyan);
-      margin-bottom: 2.5rem;
-      text-shadow: var(--glow-cyan);
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 240, 255, 0.1);
+      padding: 4px 10px;
+      margin-bottom: 1.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
     }
 
     .hero h1 {
-      font-family: 'Orbitron', sans-serif;
-      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-family: var(--font-mono);
+      font-size: clamp(2.1rem, 4vw, 2.75rem);
       font-weight: 700;
       line-height: 1.2;
       margin-bottom: 1.5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: -0.02em;
+      color: #ffffff;
     }
 
-    .hero h1 .highlight {
-      color: var(--neon-cyan);
-      text-shadow: var(--glow-cyan);
+    /* Industrial Brutalist Terminal Source Card */
+    .source-card {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-accent);
+      border-left: 4px solid var(--accent-cyan);
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.75rem;
+      text-align: left;
+      align-items: center;
     }
 
-    .hero-subtitle {
-      font-size: 1.1rem;
-      font-weight: 300;
-      color: var(--muted-gray);
-      max-width: 480px;
-      margin-bottom: 3rem;
-      letter-spacing: 0.05em;
+    .source-thumb {
+      width: 120px;
+      height: 75px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
     }
 
-    .scroll-hint {
-      position: absolute;
-      bottom: 3rem;
-      left: 50%;
-      transform: translateX(-50%);
+    .source-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .source-details {
+      flex: 1;
+      min-width: 240px;
       display: flex;
       flex-direction: column;
+      gap: 10px;
+    }
+
+    .source-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+    }
+
+    .meta-item {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .meta-label {
+      color: var(--fg-muted);
+    }
+
+    .meta-val {
+      color: var(--fg);
+      font-weight: 600;
+    }
+
+    .video-info-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      color: var(--muted-gray);
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.6rem;
-      letter-spacing: 0.2em;
+      gap: 8px;
+      padding: 6px 14px;
+      background: var(--bg);
+      border: 1px solid var(--accent-orange);
+      color: var(--accent-orange);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
+      align-self: flex-start;
+      transition: all 0.15s ease;
     }
 
-    .scroll-hint::after {
-      content: '';
-      width: 1px;
-      height: 40px;
-      background: linear-gradient(to bottom, var(--neon-cyan), transparent);
-      animation: scanline 2s ease-in-out infinite;
-    }
-
-    @keyframes scanline {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
+    .video-info-badge:hover {
+      background: var(--accent-orange);
+      color: #000000;
+      box-shadow: 0 0 10px rgba(255, 85, 0, 0.35);
     }
 
     /* Container */
     .container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 0 2rem;
       position: relative;
       z-index: 1;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 3.5rem 2rem 8rem;
     }
 
-    /* Intro */
-    .intro {
-      padding: 6rem 0 4rem;
-    }
-
-    .intro p {
+    /* Typography */
+    .container p {
       font-size: 1.05rem;
-      line-height: 2;
-      color: var(--data-white);
-      text-align: justify;
+      line-height: 1.8;
+      color: var(--fg);
+      margin-bottom: 1.5rem;
     }
 
-    .intro p:first-of-type::first-letter {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 3rem;
-      float: left;
-      line-height: 1;
-      margin-right: 0.5rem;
-      margin-top: 0.1rem;
-      color: var(--neon-cyan);
-      text-shadow: var(--glow-cyan);
-    }
-
-    /* Quote */
-    .quote-block {
-      background: linear-gradient(135deg, rgba(0, 240, 255, 0.05), rgba(178, 75, 243, 0.05));
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      border-left: 3px solid var(--neon-cyan);
-      padding: 2rem;
-      margin: 3rem 0;
-      position: relative;
-    }
-
-    .quote-block::before {
-      content: '//';
-      position: absolute;
-      top: -12px;
-      left: 20px;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.7rem;
-      color: var(--neon-cyan);
-      background: var(--deep-space);
-      padding: 0 10px;
-      letter-spacing: 0.1em;
-    }
-
-    .quote-block blockquote {
-      font-size: 1.2rem;
-      font-weight: 500;
-      line-height: 1.7;
-      color: var(--data-white);
-    }
-
-    .quote-block cite {
-      display: block;
-      margin-top: 1rem;
-      font-size: 0.8rem;
-      color: var(--muted-gray);
-      font-style: normal;
-    }
-
-    /* Section */
-    .section { padding: 4rem 0; }
-
-    .section-header { margin-bottom: 2.5rem; }
-
-    .section-label {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.65rem;
-      letter-spacing: 0.3em;
-      color: var(--plasma-purple);
-      text-transform: uppercase;
-      margin-bottom: 0.75rem;
-      display: block;
-    }
-
-    .section-title {
-      font-family: 'Orbitron', sans-serif;
-      font-size: clamp(1.4rem, 4vw, 1.8rem);
-      font-weight: 600;
-      line-height: 1.3;
-      color: var(--data-white);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    /* Method */
-    .method {
-      background: var(--neural-gray);
-      border: 1px solid rgba(0, 240, 255, 0.1);
-      clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
-      padding: 2rem;
-      margin: 2rem 0;
-      position: relative;
-      transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .method:hover {
-      border-color: var(--neon-cyan);
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
-    }
-
-    .method-number {
-      position: absolute;
-      top: 1rem;
-      right: 1.5rem;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 3rem;
+    .container h2 {
+      font-family: var(--font-mono);
+      font-size: 1.45rem;
       font-weight: 700;
-      color: var(--matrix-green);
-      opacity: 0.15;
-      line-height: 1;
-      text-shadow: var(--glow-green);
-    }
-
-    .method-icon {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--neon-cyan), var(--plasma-purple));
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 1.25rem;
-    }
-
-    .method-icon svg { width: 22px; height: 22px; stroke: var(--void-black); fill: none; stroke-width: 2; }
-
-    .method h3 {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--data-white);
-      margin-bottom: 1rem;
+      margin: 3.5rem 0 1.25rem;
+      color: #ffffff;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+      letter-spacing: -0.01em;
+    }
+    
+    .container h2::before {
+      content: '// ';
+      color: var(--accent-orange);
     }
 
-    .method p {
-      color: var(--muted-gray);
-      line-height: 1.85;
-      font-size: 0.95rem;
+    .container h3 {
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 2.25rem 0 0.85rem;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
     }
 
-    .highlight-box {
-      background: rgba(0, 240, 255, 0.05);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      border-left: 3px solid var(--neon-cyan);
+    .container ul, .container ol {
+      margin-bottom: 1.5rem;
+      padding-left: 1.5rem;
+    }
+
+    .container li {
+      margin-bottom: 0.55rem;
+      line-height: 1.75;
+    }
+
+    .container strong {
+      color: var(--accent-cyan);
+      font-weight: 700;
+    }
+
+    /* Blockquote */
+    .container blockquote {
+      margin: 2rem 0;
       padding: 1.25rem 1.5rem;
+      background: var(--bg-card);
+      border-left: 4px solid var(--accent-orange);
+      color: var(--fg);
+      font-size: 1.05rem;
+    }
+    
+    .container blockquote p {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.98rem;
+    }
+
+    /* Callouts */
+    .callout {
+      margin: 2rem 0;
+      padding: 1.25rem;
+      border: 1px solid var(--border-accent);
+      background: var(--bg-card);
+      display: flex;
+      gap: 14px;
+    }
+
+    .callout-icon {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      color: var(--accent-cyan);
+      line-height: 1;
+    }
+
+    .callout-content p {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    /* Code & Terminal blocks */
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      color: var(--accent-cyan);
+      background: var(--bg-card);
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      overflow-x: auto;
       margin: 1.5rem 0;
     }
 
-    .highlight-box p {
-      margin: 0;
-      font-size: 0.9rem;
-      color: var(--data-white);
+    pre code {
+      border: none;
+      padding: 0;
+      background: none;
+      color: inherit;
     }
 
-    /* Summary */
-    .summary {
-      padding: 5rem 2rem;
-      text-align: center;
-      background: linear-gradient(135deg, var(--neural-gray), var(--cyber-dark));
-      border-top: 1px solid rgba(0, 240, 255, 0.2);
-      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
-      position: relative;
-      z-index: 1;
-    }
-
-    .summary h2 {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 1.6rem;
-      font-weight: 600;
-      color: var(--neon-cyan);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 1rem;
-      text-shadow: var(--glow-cyan);
-    }
-
-    .summary p {
-      max-width: 480px;
-      margin: 0 auto 2rem;
-      color: var(--muted-gray);
-      line-height: 1.8;
-    }
-
-    .takeaway {
-      display: inline-block;
-      font-family: 'Orbitron', sans-serif;
-      padding: 1rem 2.5rem;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--void-black);
-      background: linear-gradient(135deg, var(--neon-cyan), var(--plasma-purple));
-      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+    hr {
+      border: 0;
+      border-top: 1px dashed var(--border);
+      margin: 4rem 0;
     }
 
     /* Footer */
-    .footer {
-      padding: 2rem;
-      text-align: center;
-      border-top: 1px solid rgba(0, 240, 255, 0.1);
+    footer {
       position: relative;
       z-index: 1;
+      padding: 2.5rem 2rem;
+      text-align: left;
+      border-top: 2px solid var(--border);
+      background: var(--bg);
+      max-width: 800px;
+      margin: 0 auto;
     }
 
-    .footer p {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 0.7rem;
-      color: var(--muted-gray);
-      letter-spacing: 0.1em;
-    }
-
-    /* Reveal */
-    .reveal {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
+    footer p {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     @media (max-width: 640px) {
-      .method { padding: 1.5rem; clip-path: none; border-radius: 4px; }
-      .method-number { font-size: 2rem; }
-    }
-    
-    /* Layout enhancements */
-    .video-info-badge {
-      margin-top: 2rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.5rem;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 30px;
-      color: inherit;
-      text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      z-index: 10;
-      position: relative;
-    }
-    .video-info-badge:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-2px);
-    }
-    
-    /* Ensure reveal anim compatibility */
-    .reveal {
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
+      .hero {
+        padding: 3.5rem 1.25rem 2.5rem;
+      }
+      .hero h1 {
+        font-size: 1.85rem;
+      }
+      .container {
+        padding: 2.25rem 1.25rem 6rem;
+      }
     }
   </style>
 </head>
 <body>
   <header class="hero">
-    <span class="hero-tag">{{ platform }}</span>
     <h1>{{ title }}</h1>
-    <p class="hero-subtitle">由 {{ author }} 发布于 {{ publish_date }} | 时长 {{ duration_formatted }}</p>
-    
-    <a href="{{ video_url }}" target="_blank" class="video-info-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      观看原视频
-    </a>
+
+    <!-- Brutalist Terminal Source Card -->
+    <div class="source-card">
+      {% if thumbnail_url and thumbnail_url != "" %}
+      <div class="source-thumb">
+        <img src="{{ thumbnail_url }}" alt="{{ title }}" loading="lazy" />
+      </div>
+      {% endif %}
+      <div class="source-details">
+        <div class="source-header">
+          <span class="hero-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            {{ platform }} // SRC_REF
+          </span>
+        </div>
+        <div class="source-meta">
+          <div class="meta-item">
+            <span class="meta-label">AUTH:</span>
+            <span class="meta-val">{{ author }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">PUB:</span>
+            <span class="meta-val">{{ publish_date }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">DUR:</span>
+            <span class="meta-val">{{ duration_formatted }}</span>
+          </div>
+        </div>
+        <a href="{{ video_url }}" target="_blank" class="video-info-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          FETCH_SOURCE_VIDEO
+        </a>
+      </div>
+    </div>
   </header>
 
-  <article class="container" style="padding-bottom: 8rem;">
-    <div style="padding-top: 4rem;">
-      {{ article_content }}
-    </div>
+  <article class="container">
+    {{ article_content }}
   </article>
 
-  <footer style="padding: 3rem 0; text-align: center; border-top: 1px solid var(--border, rgba(255,255,255,0.1)); opacity: 0.8; font-size: 0.8rem;">
-    <p>⚠️ 重要提示：本文内容基于视频字幕整理，仅供个人学习研究使用。发布前请注意标注视频来源以尊重原作者版权。</p>
+  <footer>
+    <p>[SYS_TERMINAL_LOG]: ARTICLE_EXTRACTED_SUCCESSFULLY. RESPECT_ORIGINAL_CREATOR_RIGHTS.</p>
   </footer>
-
-  <script>
-    const revealElements = document.querySelectorAll('.reveal');
-    const revealOnScroll = () => {
-      const windowHeight = window.innerHeight;
-      revealElements.forEach(el => {
-        const elementTop = el.getBoundingClientRect().top;
-        if (elementTop < windowHeight - 100) {
-          el.classList.add('visible');
-        }
-      });
-    };
-    window.addEventListener('scroll', revealOnScroll);
-    window.addEventListener('load', revealOnScroll);
-  </script>
 </body>
 </html>
+

@@ -28,6 +28,7 @@ import VideoInput from "./components/VideoInput";
 import GenerationProgress from "./components/GenerationProgress";
 import HistoryPanel from "./components/HistoryPanel";
 import ArticlePreview from "./components/ArticlePreview";
+import FullThemeManualView from "./components/FullThemeManualView";
 
 export default function App() {
   // App global state
@@ -42,6 +43,8 @@ export default function App() {
   // UI control state
   const [showSettings, setShowSettings] = useState(false);
   const [showMobileHistory, setShowMobileHistory] = useState(false);
+  const [showThemeManual, setShowThemeManual] = useState(false);
+  const [selectedStyle, setSelectedStyle] = useState("notion_dark");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,6 +170,7 @@ export default function App() {
   const handleSelectArticle = async (id: number) => {
     setSelectedArticleId(id);
     setSelectedActiveTaskId(null);
+    setShowThemeManual(false);
     setShowMobileHistory(false);
     setError(null);
 
@@ -195,6 +199,7 @@ export default function App() {
     setSelectedArticleId(null);
     setSelectedArticle(null);
     setSelectedActiveTaskId(null);
+    setShowThemeManual(false);
     setError(null);
     setShowMobileHistory(false);
   };
@@ -203,6 +208,16 @@ export default function App() {
     setSelectedActiveTaskId(id);
     setSelectedArticleId(null);
     setSelectedArticle(null);
+    setShowThemeManual(false);
+    setShowMobileHistory(false);
+    setError(null);
+  };
+
+  const handleSelectThemeManual = () => {
+    setShowThemeManual(true);
+    setSelectedArticleId(null);
+    setSelectedArticle(null);
+    setSelectedActiveTaskId(null);
     setShowMobileHistory(false);
     setError(null);
   };
@@ -238,8 +253,10 @@ export default function App() {
           activeTasks={activeTasks}
           selectedArticleId={selectedArticleId}
           selectedActiveTaskId={selectedActiveTaskId}
+          isThemeManualSelected={showThemeManual}
           onSelectArticle={handleSelectArticle}
           onSelectActiveTask={handleSelectActiveTask}
+          onSelectThemeManual={handleSelectThemeManual}
           onDeleteArticle={handleDeleteArticle}
           onNewTask={handleNewTask}
         />
@@ -255,8 +272,10 @@ export default function App() {
               activeTasks={activeTasks}
               selectedArticleId={selectedArticleId}
               selectedActiveTaskId={selectedActiveTaskId}
+              isThemeManualSelected={showThemeManual}
               onSelectArticle={handleSelectArticle}
               onSelectActiveTask={handleSelectActiveTask}
+              onSelectThemeManual={handleSelectThemeManual}
               onDeleteArticle={handleDeleteArticle}
               onNewTask={handleNewTask}
             />
@@ -314,7 +333,7 @@ export default function App() {
         </header>
 
         {/* Workspace Body Area */}
-        <main className={`flex-1 p-4 md:p-6 mx-auto w-full flex flex-col gap-6 relative z-10 ${selectedArticle && !selectedActiveTaskId ? "overflow-hidden max-w-6xl" : "overflow-y-auto max-w-4xl"}`}>
+        <main className={`flex-1 p-4 md:p-6 mx-auto w-full flex flex-col gap-6 relative z-10 ${selectedArticle && !selectedActiveTaskId || showThemeManual ? "overflow-hidden max-w-6xl" : "overflow-y-auto max-w-4xl"}`}>
           {/* Error Banner */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-xs text-red-400 flex items-start gap-2.5 animate-fade-up">
@@ -335,7 +354,16 @@ export default function App() {
             </div>
           )}
 
-          {selectedArticle && !selectedActiveTaskId && (
+          {showThemeManual && !selectedActiveTaskId && !selectedArticle && (
+            <div className="flex-1 w-full flex flex-col overflow-hidden animate-fade-up min-h-0">
+              <FullThemeManualView
+                currentStyle={selectedStyle}
+                onSelectStyle={(newStyle) => setSelectedStyle(newStyle)}
+              />
+            </div>
+          )}
+
+          {selectedArticle && !selectedActiveTaskId && !showThemeManual && (
             <div className="flex-1 w-full flex flex-col overflow-hidden animate-fade-up min-h-0">
               <ArticlePreview 
                 article={selectedArticle} 
@@ -345,7 +373,7 @@ export default function App() {
           )}
 
           {/* Welcome / Input Screen - Kept in DOM to preserve state, toggled via CSS */}
-          <div className={(!selectedArticle && !selectedActiveTaskId) ? "space-y-8 max-w-xl mx-auto w-full pt-6 md:pt-16 animate-fade-up" : "hidden"}>
+          <div className={(!selectedArticle && !selectedActiveTaskId && !showThemeManual) ? "space-y-8 max-w-xl mx-auto w-full pt-6 md:pt-16 animate-fade-up" : "hidden"}>
             <div className="text-center space-y-3 mb-8">
               <div className="inline-flex rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] font-medium bg-accent-light border border-accent-border text-accent-text mb-2">
                 <Sparkles size={10} className="inline mr-1" /> Premium AI Synthesizer

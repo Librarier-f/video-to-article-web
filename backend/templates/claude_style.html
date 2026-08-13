@@ -6,452 +6,373 @@
   <title>{{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink-black: #1a1a1a;
-      --ink-gray: #4a4a4a;
-      --ink-light: #8a8a8a;
-      --paper: #faf8f5;
-      --paper-warm: #f5f0e8;
-      --accent-purple: #c96442;
-      --accent-teal: #0d9488;
-      --shadow-soft: 0 4px 30px rgba(0,0,0,0.06);
-      --shadow-medium: 0 8px 40px rgba(0,0,0,0.1);
+      /* Anthropic / Claude Editorial Warm Paper Palette */
+      --bg:             #FBF9F5;
+      --bg-alt:         #F3EFE6;
+      --bg-hover:       #EAE4D8;
+      --text-primary:   #2C2A29;
+      --text-secondary: #5E5B56;
+      --text-muted:     #8C8882;
+      --border:         #E3DEC3;
+      --border-subtle:  #EBE6DC;
+      --accent:         #B95525; /* Warm Terracotta / Clay */
+      
+      --font-serif: 'Noto Serif SC', Georgia, serif;
+      --font-sans:  'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      --font-mono:  'JetBrains Mono', monospace;
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    ::selection {
-      background: var(--accent-purple);
-      color: white;
-    }
+    ::selection { background: #EAD5C5; color: var(--text-primary); }
 
     html {
       scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     body {
-      font-family: 'Noto Sans SC', sans-serif;
-      background: var(--paper);
-      color: var(--ink-black);
-      line-height: 1.9;
-      overflow-x: hidden;
-    }
-
-    body::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      opacity: 0.025;
-      z-index: 1000;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+      font-family: var(--font-serif);
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.85;
+      font-size: 17.5px;
+      letter-spacing: -0.003em;
     }
 
     /* Hero */
     .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 6rem 2rem 3.5rem;
       text-align: center;
-      padding: 4rem 2rem;
-      background: linear-gradient(180deg, var(--paper-warm) 0%, var(--paper) 100%);
-      position: relative;
+      border-bottom: 1px dashed var(--border);
     }
 
-    .overline {
-      font-size: 0.75rem;
-      letter-spacing: 0.4em;
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--accent);
       text-transform: uppercase;
-      color: var(--accent-purple);
-      margin-bottom: 2rem;
-      opacity: 0;
-      animation: fadeInUp 0.8s ease forwards;
-      animation-delay: 0.2s;
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+      font-weight: 600;
     }
 
     .hero h1 {
-      font-family: 'Noto Serif SC', serif;
-      font-size: clamp(2.2rem, 7vw, 4.5rem);
+      font-family: var(--font-serif);
+      font-size: clamp(2.2rem, 4vw, 2.85rem);
       font-weight: 700;
-      line-height: 1.2;
-      letter-spacing: -0.02em;
+      line-height: 1.3;
+      color: var(--text-primary);
       margin-bottom: 1.5rem;
-      opacity: 0;
-      animation: fadeInUp 0.8s ease forwards;
-      animation-delay: 0.4s;
+      letter-spacing: -0.015em;
     }
 
-    .hero h1 .highlight {
-      color: var(--accent-purple);
+    /* Anthropic Warm Paper Source Card */
+    .source-card {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.75rem;
+      text-align: left;
+      align-items: center;
     }
 
-    .hero-subtitle {
-      font-size: 1.1rem;
-      font-weight: 300;
-      color: var(--ink-gray);
-      max-width: 480px;
-      margin-bottom: 3rem;
-      opacity: 0;
-      animation: fadeInUp 0.8s ease forwards;
-      animation-delay: 0.6s;
+    .source-thumb {
+      width: 120px;
+      height: 75px;
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
     }
 
-    .scroll-hint {
-      position: absolute;
-      bottom: 3rem;
-      left: 50%;
-      transform: translateX(-50%);
+    .source-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .source-details {
+      flex: 1;
+      min-width: 240px;
       display: flex;
       flex-direction: column;
+      gap: 10px;
+    }
+
+    .source-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+    }
+
+    .meta-item {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .meta-label {
+      color: var(--text-muted);
+    }
+
+    .meta-val {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .video-info-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
-      color: var(--ink-light);
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      opacity: 0;
-      animation: fadeIn 1s ease forwards;
-      animation-delay: 1s;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      text-decoration: none;
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 4px;
+      align-self: flex-start;
+      transition: all 0.2s ease;
     }
 
-    .scroll-hint svg {
-      animation: bounce 2s ease infinite;
-    }
-
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(30px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes fadeIn { to { opacity: 1; } }
-
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(8px); }
+    .video-info-badge:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
     }
 
     /* Container */
     .container {
-      max-width: 800px;
+      max-width: 740px;
       margin: 0 auto;
-      padding: 0 2rem;
+      padding: 3.5rem 2rem 7rem;
     }
 
-    /* Intro */
-    .intro {
-      padding: 6rem 0 4rem;
+    /* Editorial Prose Typography */
+    .container p {
+      font-size: 1.08rem;
+      line-height: 1.95;
+      color: var(--text-primary);
+      margin-bottom: 1.6rem;
     }
-
-    .intro p {
-      font-size: 1.1rem;
-      line-height: 2;
-      color: var(--ink-gray);
-      text-align: justify;
-    }
-
-    .intro p:first-of-type::first-letter {
-      font-family: 'Noto Serif SC', serif;
-      font-size: 3.2rem;
+    
+    /* Drop Cap for first paragraph */
+    .container > p:first-of-type::first-letter {
+      font-family: var(--font-serif);
+      font-size: 3.6rem;
       float: left;
-      line-height: 1;
-      margin-right: 0.5rem;
+      line-height: 0.82;
+      margin-right: 0.6rem;
       margin-top: 0.15rem;
-      color: var(--accent-purple);
-    }
-
-    /* Section Header */
-    .section-header {
-      margin-bottom: 3rem;
-      position: relative;
-    }
-
-    .section-label {
-      font-size: 0.7rem;
-      letter-spacing: 0.3em;
-      color: var(--accent-purple);
-      margin-bottom: 1rem;
-      display: block;
-    }
-
-    .section-title {
-      font-family: 'Noto Serif SC', serif;
-      font-size: clamp(1.5rem, 4vw, 2rem);
-      font-weight: 600;
-      line-height: 1.3;
-    }
-
-    .section-title::after {
-      content: '';
-      position: absolute;
-      bottom: -8px;
-      left: 0;
-      width: 50px;
-      height: 3px;
-      background: var(--accent-purple);
-    }
-
-    /* Methods */
-    .method {
-      background: white;
-      border-radius: 8px;
-      padding: 2.5rem;
-      box-shadow: var(--shadow-soft);
-      margin: 2.5rem 0;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .method:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--shadow-medium);
-    }
-
-    .method-number {
-      position: absolute;
-      top: -0.5rem;
-      right: 1.5rem;
-      font-family: 'Noto Serif SC', serif;
-      font-size: 6rem;
+      color: var(--accent);
       font-weight: 700;
-      color: var(--accent-purple);
-      opacity: 0.06;
+    }
+
+    .container h2 {
+      font-family: var(--font-serif);
+      font-size: 1.65rem;
+      font-weight: 700;
+      margin: 3.75rem 0 1.35rem;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .container h3 {
+      font-family: var(--font-serif);
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin: 2.5rem 0 1rem;
+      color: var(--text-primary);
+    }
+
+    .container ul, .container ol {
+      margin-bottom: 1.6rem;
+      padding-left: 1.75rem;
+    }
+
+    .container li {
+      margin-bottom: 0.6rem;
+      line-height: 1.85;
+    }
+
+    .container strong {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* Blockquote */
+    .container blockquote {
+      margin: 2.5rem 0;
+      padding: 1.4rem 1.75rem;
+      background: var(--bg-alt);
+      border-left: 3px solid var(--accent);
+      color: var(--text-secondary);
+      font-style: normal;
+      border-radius: 0 6px 6px 0;
+    }
+    
+    .container blockquote p {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--text-primary);
+    }
+
+    /* Callouts / Highlights */
+    .callout {
+      margin: 2rem 0;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid var(--border);
+      background: var(--bg-alt);
+      border-radius: 6px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .callout-icon {
+      font-size: 1.3rem;
       line-height: 1;
-    }
-
-    .method-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .method-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--accent-purple), #d4826a);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       flex-shrink: 0;
     }
 
-    .method-icon svg {
-      width: 24px;
-      height: 24px;
-      stroke: white;
-      fill: none;
-    }
-
-    .method h3 {
-      font-family: 'Noto Serif SC', serif;
-      font-size: 1.3rem;
-      font-weight: 600;
-      color: var(--ink-black);
-    }
-
-    .method p {
-      color: var(--ink-gray);
-      line-height: 1.85;
-      font-size: 0.98rem;
-    }
-
-    .method .highlight-box {
-      background: linear-gradient(135deg, var(--paper-warm), var(--paper));
-      border-left: 3px solid var(--accent-purple);
-      padding: 1.25rem 1.5rem;
-      margin: 1.5rem 0;
-      border-radius: 0 6px 6px 0;
-    }
-
-    .method .highlight-box p {
+    .callout-content p {
       margin: 0;
-      font-size: 0.95rem;
-    }
-
-    /* Quote */
-    .quote-block {
-      background: linear-gradient(135deg, var(--paper-warm) 0%, var(--paper) 100%);
-      padding: 3rem 2.5rem;
-      margin: 4rem 0;
-      position: relative;
-      text-align: center;
-      border-left: 4px solid var(--accent-teal);
-    }
-
-    .quote-block blockquote {
-      font-family: 'Noto Serif SC', serif;
-      font-size: clamp(1.1rem, 3vw, 1.4rem);
-      font-weight: 500;
+      font-family: var(--font-sans);
+      font-size: 0.96rem;
       line-height: 1.7;
-      color: var(--ink-black);
-      font-style: normal;
+      color: var(--text-primary);
     }
 
-    .quote-block cite {
-      display: block;
-      margin-top: 1.5rem;
-      font-size: 0.8rem;
-      color: var(--ink-light);
-      font-style: normal;
-      letter-spacing: 0.1em;
+    /* Code Snippets */
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: var(--bg-alt);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border-subtle);
     }
 
-    /* Summary */
-    .summary {
-      padding: 5rem 2rem;
-      text-align: center;
-      background: var(--paper-warm);
+    pre {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 1.75rem 0;
     }
 
-    .summary h2 {
-      font-family: 'Noto Serif SC', serif;
-      font-size: clamp(1.3rem, 3vw, 1.8rem);
-      font-weight: 600;
-      margin-bottom: 2rem;
-    }
-
-    .summary p {
-      max-width: 520px;
-      margin: 0 auto 1.5rem;
-      color: var(--ink-gray);
-      line-height: 1.9;
-    }
-
-    .takeaway {
-      display: inline-block;
-      background: linear-gradient(135deg, var(--accent-purple), #d4826a);
-      color: white;
-      padding: 1rem 2.5rem;
-      font-size: 0.9rem;
-      letter-spacing: 0.1em;
-      margin-top: 1.5rem;
-      font-weight: 500;
-      border-radius: 4px;
+    pre code {
+      border: none;
+      background: none;
+      padding: 0;
     }
 
     /* Footer */
-    .footer {
-      padding: 3rem 2rem;
+    footer {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
       text-align: center;
-      border-top: 1px solid #eee;
+      border-top: 1px dashed var(--border);
     }
 
-    .footer p {
-      font-size: 0.75rem;
-      color: var(--ink-light);
-      letter-spacing: 0.1em;
+    footer p {
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
     }
 
-    /* Reveal */
-    .reveal {
-      opacity: 0;
-      transform: translateY(40px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
-    }
-
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* Responsive */
     @media (max-width: 640px) {
-      .method {
-        padding: 2rem 1.5rem;
+      .hero {
+        padding: 4rem 1.25rem 2.5rem;
       }
-
-      .method-number {
-        font-size: 4rem;
-        top: -0.25rem;
+      .hero h1 {
+        font-size: 1.95rem;
       }
-    }
-    
-    /* Layout enhancements */
-    .video-info-badge {
-      margin-top: 2rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.5rem;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 30px;
-      color: inherit;
-      text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      z-index: 10;
-      position: relative;
-    }
-    .video-info-badge:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-2px);
-    }
-    
-    /* Ensure reveal anim compatibility */
-    .reveal {
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
+      .container {
+        padding: 2.25rem 1.25rem 5rem;
+      }
+      .container > p:first-of-type::first-letter {
+        font-size: 3rem;
+      }
     }
   </style>
 </head>
 <body>
   <header class="hero">
-    <span class="overline">{{ platform }}</span>
     <h1>{{ title }}</h1>
-    <p class="hero-subtitle">由 {{ author }} 发布于 {{ publish_date }} | 时长 {{ duration_formatted }}</p>
-    
-    <a href="{{ video_url }}" target="_blank" class="video-info-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      观看原视频
-    </a>
+
+    <!-- Anthropic Editorial Source Card -->
+    <div class="source-card">
+      {% if thumbnail_url and thumbnail_url != "" %}
+      <div class="source-thumb">
+        <img src="{{ thumbnail_url }}" alt="{{ title }}" loading="lazy" />
+      </div>
+      {% endif %}
+      <div class="source-details">
+        <div class="source-header">
+          <span class="hero-tag">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
+            {{ platform }} 原创内容出处
+          </span>
+        </div>
+        <div class="source-meta">
+          <div class="meta-item">
+            <span class="meta-label">原作者</span>
+            <span class="meta-val">{{ author }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">发布时间</span>
+            <span class="meta-val">{{ publish_date }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">视频时长</span>
+            <span class="meta-val">{{ duration_formatted }}</span>
+          </div>
+        </div>
+        <a href="{{ video_url }}" target="_blank" class="video-info-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          原视频链接
+        </a>
+      </div>
+    </div>
   </header>
 
-  <article class="container" style="padding-bottom: 8rem;">
-    <div style="padding-top: 4rem;">
-      {{ article_content }}
-    </div>
+  <article class="container">
+    {{ article_content }}
   </article>
 
-  <footer style="padding: 3rem 0; text-align: center; border-top: 1px solid var(--border, rgba(255,255,255,0.1)); opacity: 0.8; font-size: 0.8rem;">
-    <p>⚠️ 重要提示：本文内容基于视频字幕整理，仅供个人学习研究使用。发布前请注意标注视频来源以尊重原作者版权。</p>
+  <footer>
+    <p>🍃 声明：本文基于视频字幕经 Anthropic Editorial 风格自动整理渲染，仅供学术与研究探讨使用。</p>
   </footer>
-
-  <script>
-    const revealElements = document.querySelectorAll('.reveal');
-    const revealOnScroll = () => {
-      const windowHeight = window.innerHeight;
-      revealElements.forEach(el => {
-        const elementTop = el.getBoundingClientRect().top;
-        if (elementTop < windowHeight - 100) {
-          el.classList.add('visible');
-        }
-      });
-    };
-    window.addEventListener('scroll', revealOnScroll);
-    window.addEventListener('load', revealOnScroll);
-  </script>
 </body>
 </html>
+

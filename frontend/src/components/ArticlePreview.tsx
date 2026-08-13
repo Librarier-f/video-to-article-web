@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check, Bot, Lightbulb, ChevronDown } from "lucide-react";
 import { getDownloadUrl, getMarkdownDownloadUrl, exportToIma } from "../utils/api";
 import type { ArticleDetailResponseData } from "../utils/api";

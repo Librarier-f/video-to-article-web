@@ -6,506 +6,342 @@
   <title>{{ title }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #1a1a1a;
-      --ink-light: #6b6b6b;
-      --ink-muted: #999999;
-      --paper: #fefefe;
-      --paper-warm: #f9f7f5;
-      --accent: #2d5a4a;
-      --accent-light: #3d7a6a;
-      --serif: 'Noto Serif SC', 'Cormorant Garamond', Georgia, serif;
-      --serif-display: 'Cormorant Garamond', 'Noto Serif SC', Georgia, serif;
+      /* Swiss Architectural Minimalist System */
+      --ink:        #111111;
+      --ink-light:  #444444;
+      --ink-muted:  #888888;
+      --paper:      #ffffff;
+      --paper-alt:  #f5f5f7;
+      --border:     #e5e5eb;
+      --accent:     #111111;
+      
+      --font-sans: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    ::selection { background: #111111; color: #ffffff; }
+
     html {
       scroll-behavior: smooth;
-      font-size: 19px;
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     body {
-      font-family: var(--serif);
+      font-family: var(--font-sans);
       background: var(--paper);
       color: var(--ink);
       line-height: 1.8;
-      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.005em;
     }
 
-    ::selection {
-      background: var(--accent);
-      color: white;
-    }
-
-    /* Hero */
+    /* Hero Section */
     .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      padding: 6.5rem 2rem 4rem;
+      max-width: 800px;
+      margin: 0 auto;
       text-align: center;
-      padding: 3rem 2rem;
-      position: relative;
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 1px;
-      height: 120px;
-      background: linear-gradient(to bottom, transparent, var(--ink-muted));
+      border-bottom: 1px solid var(--border);
     }
 
     .overline {
-      font-size: 0.7rem;
-      letter-spacing: 0.35em;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
       color: var(--ink-muted);
-      margin-bottom: 3rem;
+      margin-bottom: 1.75rem;
+      display: inline-block;
+      font-weight: 500;
     }
 
     .hero h1 {
-      font-family: var(--serif-display);
-      font-size: clamp(2.5rem, 8vw, 5rem);
-      font-weight: 400;
-      line-height: 1.15;
-      max-width: 14ch;
-      margin-bottom: 2rem;
+      font-family: var(--font-sans);
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.025em;
     }
 
-    .hero h1 em {
-      font-style: italic;
-      color: var(--accent);
+    /* Swiss Style Source Card */
+    .source-card {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      background: var(--paper-alt);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--ink);
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.75rem;
+      text-align: left;
+      align-items: center;
     }
 
-    .hero-subtitle {
-      font-size: 1.1rem;
-      color: var(--ink-light);
-      max-width: 38ch;
-      line-height: 1.7;
+    .source-thumb {
+      width: 120px;
+      height: 75px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--paper);
+      border: 1px solid var(--border);
     }
 
-    .scroll-indicator {
-      position: absolute;
-      bottom: 3rem;
-      left: 50%;
-      transform: translateX(-50%);
+    .source-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .source-details {
+      flex: 1;
+      min-width: 240px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-      color: var(--ink-muted);
-      font-size: 0.65rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
+      gap: 10px;
     }
 
-    .scroll-indicator::after {
-      content: '';
-      width: 1px;
-      height: 50px;
-      background: var(--ink-muted);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
-    }
-
-    /* Article */
-    article {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 0 2rem;
-    }
-
-    .prose {
-      padding: 6rem 0;
-    }
-
-    .prose p {
-      font-size: 1.05rem;
-      line-height: 2;
-      color: var(--ink);
-      margin-bottom: 1.75em;
-    }
-
-    .prose p:first-of-type::first-letter {
-      font-family: var(--serif-display);
-      font-size: 4rem;
-      float: left;
-      line-height: 0.85;
-      margin-right: 0.3rem;
-      margin-top: 0.15rem;
-      color: var(--accent);
-    }
-
-    /* Divider */
-    .divider {
+    .source-meta {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4rem 0;
+      flex-wrap: wrap;
+      gap: 16px;
+      color: var(--ink);
+      font-size: 13px;
     }
 
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      max-width: 80px;
-      height: 1px;
-      background: var(--ink-muted);
-      opacity: 0.3;
+    .meta-item {
+      display: inline-flex;
+      gap: 4px;
     }
 
-    .divider span {
-      padding: 0 1.5rem;
+    .meta-label {
       color: var(--ink-muted);
-      font-size: 0.75rem;
-      letter-spacing: 0.2em;
+    }
+
+    .meta-val {
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .video-info-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--paper);
+      border: 1px solid var(--ink);
+      color: var(--ink);
+      text-decoration: none;
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      align-self: flex-start;
+      transition: all 0.2s ease;
+    }
+
+    .video-info-badge:hover {
+      background: var(--ink);
+      color: var(--paper);
+      transform: translateY(-1px);
+    }
+
+    /* Article Container */
+    article {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 4rem 2rem 8rem;
+    }
+
+    /* Prose elements */
+    article p {
+      font-size: 1.06rem;
+      line-height: 1.85;
+      color: var(--ink);
+      margin-bottom: 1.6rem;
+    }
+
+    article h2 {
+      font-family: var(--font-sans);
+      font-size: 1.55rem;
+      font-weight: 700;
+      margin: 3.75rem 0 1.35rem;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    article h3 {
+      font-family: var(--font-sans);
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 2.25rem 0 0.85rem;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    article ul, article ol {
+      margin-bottom: 1.6rem;
+      padding-left: 1.75rem;
+      color: var(--ink);
+    }
+
+    article li {
+      margin-bottom: 0.55rem;
+      line-height: 1.8;
+    }
+
+    article strong {
+      font-weight: 700;
+      color: var(--ink);
     }
 
     /* Blockquote */
-    blockquote {
-      margin: 4rem 0;
-      padding: 3rem;
-      background: var(--paper-warm);
-      text-align: center;
-      position: relative;
-    }
-
-    blockquote::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--accent);
-    }
-
-    blockquote p {
-      font-family: var(--serif-display);
-      font-size: 1.35rem;
-      font-style: italic;
-      line-height: 1.6;
+    article blockquote {
+      margin: 2.5rem 0;
+      padding: 1.25rem 1.75rem;
+      background: var(--paper-alt);
+      border-left: 3px solid var(--ink);
       color: var(--ink);
+      font-size: 1.05rem;
     }
 
-    blockquote cite {
-      display: block;
-      margin-top: 1.5rem;
-      font-size: 0.75rem;
-      font-style: normal;
-      letter-spacing: 0.15em;
-      color: var(--ink-muted);
-      text-transform: uppercase;
-    }
-
-    /* Section */
-    .section {
-      padding: 5rem 0;
-      border-top: 1px solid rgba(0,0,0,0.06);
-    }
-
-    .section-header {
-      margin-bottom: 3rem;
-    }
-
-    .section-number {
-      display: inline-block;
-      font-family: var(--serif-display);
-      font-size: 0.85rem;
-      color: var(--accent);
-      margin-bottom: 0.75rem;
-    }
-
-    .section-title {
-      font-family: var(--serif-display);
-      font-size: 2rem;
-      font-weight: 400;
-      color: var(--ink);
-    }
-
-    /* Card */
-    .card {
-      background: var(--paper-warm);
-      padding: 2.5rem 3rem;
-      margin: 2rem 0;
-      position: relative;
-    }
-
-    .card::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--accent);
-    }
-
-    .card h3 {
-      font-family: var(--serif-display);
-      font-size: 1.25rem;
-      font-weight: 500;
-      margin-bottom: 1.25rem;
-    }
-
-    .card p {
-      font-size: 1rem;
-      line-height: 1.9;
-      color: var(--ink-light);
-      margin-bottom: 1.25rem;
-    }
-
-    .highlight-box {
-      background: var(--paper);
-      padding: 1.5rem 2rem;
-      margin: 1.5rem 0;
-      border-left: 2px solid var(--accent);
-    }
-
-    .highlight-box p {
-      font-size: 0.95rem;
-      color: var(--ink);
+    article blockquote p {
       margin: 0;
-      font-style: italic;
     }
 
-    /* Insight */
-    .insight {
-      background: var(--ink);
-      color: white;
-      padding: 4rem 3rem;
-      margin: 5rem -2rem;
-      text-align: center;
+    /* Callouts */
+    .callout {
+      margin: 2rem 0;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid var(--border);
+      background: var(--paper-alt);
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
     }
 
-    .insight-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--accent-light);
-      margin-bottom: 1.5rem;
+    .callout-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      line-height: 1;
     }
 
-    .insight h3 {
-      font-family: var(--serif-display);
-      font-size: 1.5rem;
-      font-weight: 400;
-      line-height: 1.5;
-      margin-bottom: 1.25rem;
-    }
-
-    .insight p {
-      font-size: 0.9rem;
-      color: rgba(255,255,255,0.5);
-      font-style: italic;
-    }
-
-    /* Summary */
-    .summary {
-      padding: 5rem 0;
-      border-top: 1px solid rgba(0,0,0,0.06);
-    }
-
-    .summary h2 {
-      font-family: var(--serif-display);
-      font-size: 1.75rem;
-      font-weight: 400;
-      text-align: center;
-      margin-bottom: 3rem;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0;
-    }
-
-    .summary-item {
-      padding: 1.5rem 0;
-      border-bottom: 1px solid rgba(0,0,0,0.06);
+    .callout-content p {
+      margin: 0;
+      font-family: var(--font-sans);
       font-size: 0.95rem;
-      line-height: 1.7;
       color: var(--ink-light);
     }
 
-    .summary-item:nth-child(odd) {
-      padding-right: 2rem;
-      border-right: 1px solid rgba(0,0,0,0.06);
+    /* Code blocks */
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: var(--paper-alt);
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--border);
     }
 
-    .summary-item:nth-child(even) {
-      padding-left: 2rem;
+    pre {
+      background: var(--paper-alt);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin: 1.75rem 0;
     }
 
-    .summary-item strong {
-      color: var(--ink);
-      font-weight: 500;
-    }
-
-    .summary-item .num {
-      display: inline-block;
-      font-family: var(--serif-display);
-      font-size: 0.8rem;
-      color: var(--accent);
-      margin-right: 0.5rem;
-    }
-
-    .cta-box {
-      text-align: center;
-      margin-top: 4rem;
-    }
-
-    .cta {
-      display: inline-block;
-      padding: 1rem 2.5rem;
-      background: var(--ink);
-      color: white;
-      font-size: 0.8rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      text-decoration: none;
-      transition: background 0.3s ease;
-    }
-
-    .cta:hover {
-      background: var(--accent);
+    pre code {
+      border: none;
+      padding: 0;
+      background: none;
     }
 
     /* Footer */
     footer {
-      padding: 4rem 2rem;
+      padding: 3rem 2rem;
       text-align: center;
-      border-top: 1px solid rgba(0,0,0,0.06);
+      border-top: 1px solid var(--border);
+      background: var(--paper-alt);
     }
 
     footer p {
-      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
       color: var(--ink-muted);
-    }
-
-    /* Reveal */
-    .reveal {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 0.8s ease, transform 0.8s ease;
-    }
-
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @media (max-width: 768px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
-      }
-      .summary-item:nth-child(odd) {
-        padding-right: 0;
-        border-right: none;
-      }
-      .summary-item:nth-child(even) {
-        padding-left: 0;
-      }
+      margin: 0;
+      letter-spacing: 0.05em;
     }
 
     @media (max-width: 640px) {
-      html { font-size: 17px; }
-      article { padding: 0 1.5rem; }
-      .insight {
-        margin-left: -1.5rem;
-        margin-right: -1.5rem;
-        padding: 3rem 1.5rem;
+      .hero {
+        padding: 4rem 1.25rem 3rem;
       }
-      .card { padding: 2rem; }
-      .prose p:first-of-type::first-letter { font-size: 3rem; }
-    }
-    
-    /* Layout enhancements */
-    .video-info-badge {
-      margin-top: 2rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.5rem;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 30px;
-      color: inherit;
-      text-decoration: none;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: all 0.3s ease;
-      z-index: 10;
-      position: relative;
-    }
-    .video-info-badge:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-2px);
-    }
-    
-    /* Ensure reveal anim compatibility */
-    .reveal {
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
+      article {
+        padding: 2.25rem 1.25rem 6rem;
+      }
+      .hero h1 {
+        font-size: 1.95rem;
+      }
     }
   </style>
 </head>
 <body>
   <header class="hero">
-    <span class="overline">{{ platform }}</span>
     <h1>{{ title }}</h1>
-    <p class="hero-subtitle">由 {{ author }} 发布于 {{ publish_date }} | 时长 {{ duration_formatted }}</p>
-    
-    <a href="{{ video_url }}" target="_blank" class="video-info-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-        <polyline points="15 3 21 3 21 9"></polyline>
-        <line x1="10" y1="14" x2="21" y2="3"></line>
-      </svg>
-      观看原视频
-    </a>
+
+    <!-- Swiss Architectural Source Card -->
+    <div class="source-card">
+      {% if thumbnail_url and thumbnail_url != "" %}
+      <div class="source-thumb">
+        <img src="{{ thumbnail_url }}" alt="{{ title }}" loading="lazy" />
+      </div>
+      {% endif %}
+      <div class="source-details">
+        <div class="source-header">
+          <span class="overline">{{ platform }} // ARCHIVE</span>
+        </div>
+        <div class="source-meta">
+          <div class="meta-item">
+            <span class="meta-label">原作者：</span>
+            <span class="meta-val">{{ author }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">发布日期：</span>
+            <span class="meta-val">{{ publish_date }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">时长：</span>
+            <span class="meta-val">{{ duration_formatted }}</span>
+          </div>
+        </div>
+        <a href="{{ video_url }}" target="_blank" class="video-info-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          Watch Original Source
+        </a>
+      </div>
+    </div>
   </header>
 
-  <article class="container" style="padding-bottom: 8rem;">
-    <div style="padding-top: 4rem;">
-      {{ article_content }}
-    </div>
+  <article>
+    {{ article_content }}
   </article>
 
-  <footer style="padding: 3rem 0; text-align: center; border-top: 1px solid var(--border, rgba(255,255,255,0.1)); opacity: 0.8; font-size: 0.8rem;">
-    <p>⚠️ 重要提示：本文内容基于视频字幕整理，仅供个人学习研究使用。发布前请注意标注视频来源以尊重原作者版权。</p>
+  <footer>
+    <p>SWISS EDITORIAL SYSTEM // RESPECT COPYRIGHT</p>
   </footer>
-
-  <script>
-    const revealElements = document.querySelectorAll('.reveal');
-    const revealOnScroll = () => {
-      const windowHeight = window.innerHeight;
-      revealElements.forEach(el => {
-        const elementTop = el.getBoundingClientRect().top;
-        if (elementTop < windowHeight - 100) {
-          el.classList.add('visible');
-        }
-      });
-    };
-    window.addEventListener('scroll', revealOnScroll);
-    window.addEventListener('load', revealOnScroll);
-  </script>
 </body>
 </html>
+
