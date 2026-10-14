@@ -10,6 +10,10 @@ from typing import Optional
 from models import Task, Article
 from services.converter import extract_video_details
 from services.llm_service import call_llm_api
+from services.stream_capture import capture_keyframes_from_stream
+from services.keyframe_planner import predict_keyframe_timestamps
+from services.vision_service import analyze_frame_caption
+from services.layout_enricher import build_visual_context_prompt
 
 # Set up logger
 logger = logging.getLogger("video-to-article.generator")
@@ -83,7 +87,8 @@ async def generate_article_task(
     api_base_url: Optional[str],
     sessdata: Optional[str],
     keys: dict,
-    db: Optional[Session] = None
+    db: Optional[Session] = None,
+    youtube_cookies: Optional[str] = None
 ):
     """
     Async background task that processes the video-to-article conversion.
@@ -116,7 +121,7 @@ async def generate_article_task(
             def log_converter(msg: str):
                 update_task_progress(task_id, "downloading", 15.0, "正在提取视频与字幕...", msg, db)
                 
-            details = extract_video_details(video_url, sessdata, log_converter)
+            details = extract_video_details(video_url, sessdata, log_converter, youtube_cookies=youtube_cookies)
             title = details["title"]
             author = details["author"]
             duration = details["duration"]
@@ -124,10 +129,36 @@ async def generate_article_task(
             thumbnail_url = details["thumbnail_url"]
             subtitles_text = details["cleaned_text"]
             platform = details["platform"]
+            stream_url = details.get("stream_url", "")
+            http_headers = details.get("http_headers", {})
             
             sub_len = len(subtitles_text)
             update_task_progress(task_id, "processing", 25.0, "成功提取字幕，开始评估文章结构...", f"成功提取字幕，共 {sub_len} 字符。", db)
-            
+
+            # --- Multimodal Keyframe Pipeline (Phase 2 & 3) ---
+            captured_frames = []
+            visual_prompt_suffix = ""
+
+            if stream_url and duration > 30:
+                try:
+                    update_task_progress(task_id, "planning", 28.0, "Planner Agent 正在语义分析视觉爆发点...", "正在扫描字幕中潜在的架构图与核心演示时间戳...", db)
+                    predicted_timestamps = await predict_keyframe_timestamps(subtitles_text, duration, provider, model, keys, api_base_url)
+
+                    if predicted_timestamps:
+                        update_task_progress(task_id, "capturing", 35.0, f"FFmpeg 正在定点流式抽取 {len(predicted_timestamps)} 处关键帧...", f"定点时间戳: {predicted_timestamps}", db)
+                        captured_frames = capture_keyframes_from_stream(stream_url, predicted_timestamps, task_id, base_dir="snapshots", headers=http_headers)
+
+                        if captured_frames:
+                            update_task_progress(task_id, "vision", 42.0, "Vision Agent 正在多模态提炼图表要点...", f"成功截取 {len(captured_frames)} 张有效关键帧，启动 VLM 视觉感知分析...", db)
+                            for frame in captured_frames:
+                                caption = await analyze_frame_caption(frame["local_path"], frame["timestamp_sec"], keys, api_base_url)
+                                frame["caption"] = caption
+
+                            visual_prompt_suffix = build_visual_context_prompt(captured_frames)
+                except Exception as e:
+                    logger.warning(f"Multimodal keyframe pipeline non-fatal fallback: {e}")
+                    update_task_progress(task_id, "processing", 45.0, "多模态抽帧完成/降级，继续正文生成...", f"多模态处理记录: {e}", db)
+
             # Decide process flow based on subtitle length
             article_html = ""
             
@@ -153,6 +184,7 @@ async def generate_article_task(
                     f"⚠️ 极其重要：不论以下字幕原文是何种语言，你都必须直接在脑海中将其理解，并严格使用{target_lang}来撰写最终的文章！\n"
                     f"要求还原视频中的核心案例与主要数据，语言要口语化且有吸引力。\n\n"
                     f"【字幕内容】：\n{subtitles_text}"
+                    f"{visual_prompt_suffix}"
                 )
                 
                 article_content, usage = await call_llm_api(provider, model, prompt, system_instruction, keys, api_base_url)
@@ -255,6 +287,7 @@ async def generate_article_task(
                         f"【章节大纲】：\n标题：{ch_title}\n重点说明：{ch_desc}\n\n"
                         f"【参考视频要点片段】：\n"
                         f"（请从以下整体摘要中提取与本章相关的内容进行详实扩写，保持逻辑严密，并用口语化的自媒体风格呈现）：\n{combined_summaries}\n\n"
+                        f"{visual_prompt_suffix}\n\n"
                         f"请严格遵守写作规范：\n"
                         f"1. 正文内容字数不少于 800 - 1200 字，力求还原原视频中具体的细节、数据、故事与金句，拒绝平铺直叙的空洞概括。\n"
                         f"2. 必须使用标准的 HTML 标签（如 <p>, <ul>, <li>，可用引用 <blockquote>，重点标注可以用 callout 等标签）。\n"

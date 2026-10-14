@@ -2,9 +2,9 @@ import os
 import re
 import tempfile
 import yt_dlp
-from typing import Callable, Dict, Any
+from typing import Callable, Dict, Any, Optional
 
-def create_temp_cookies(sessdata: str) -> str:
+def create_temp_cookies(sessdata: str) -> Optional[str]:
     """
     Creates a temporary Netscape-formatted cookies file using the Bilibili SESSDATA.
     """
@@ -17,6 +17,24 @@ def create_temp_cookies(sessdata: str) -> str:
     ).format(sessdata=sessdata)
     
     fd, path = tempfile.mkstemp(suffix="_cookies.txt", prefix="bili_")
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        f.write(content)
+    return path
+
+def create_temp_yt_cookies(youtube_cookies: str) -> Optional[str]:
+    """
+    Creates a temporary Netscape-formatted cookies file using the uploaded YouTube cookies content.
+    """
+    if not youtube_cookies or not youtube_cookies.strip():
+        return None
+    
+    content = youtube_cookies.strip()
+    if not content.startswith("# Netscape HTTP Cookie File"):
+        content = "# Netscape HTTP Cookie File\n" + content
+    if not content.endswith("\n"):
+        content += "\n"
+        
+    fd, path = tempfile.mkstemp(suffix="_cookies.txt", prefix="yt_")
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
         f.write(content)
     return path
@@ -58,14 +76,36 @@ def clean_subtitle(raw_text: str, is_vtt: bool = False) -> str:
             
     return "\n".join(final_lines)
 
-def extract_video_details(url: str, sessdata: str = None, log_func: Callable[[str], None] = None) -> Dict[str, Any]:
+def extract_video_details(
+    url: str,
+    sessdata: str = None,
+    log_func: Callable[[str], None] = None,
+    youtube_cookies: str = None
+) -> Dict[str, Any]:
     """
     Downloads subtitles and metadata using yt-dlp, cleans them, and returns a details dict.
     """
     if log_func:
         log_func("【下载】开始解析视频源并提取字幕...")
         
-    cookie_path = create_temp_cookies(sessdata)
+    cookie_path = None
+    lower_url = url.lower()
+    if "bilibili.com" in lower_url or "b23.tv" in lower_url:
+        cookie_path = create_temp_cookies(sessdata)
+    elif "youtube.com" in lower_url or "youtu.be" in lower_url:
+        cookie_path = create_temp_yt_cookies(youtube_cookies)
+    else:
+        if youtube_cookies:
+            cookie_path = create_temp_yt_cookies(youtube_cookies)
+        elif sessdata:
+            cookie_path = create_temp_cookies(sessdata)
+
+    if cookie_path and log_func:
+        if "youtube.com" in lower_url or "youtu.be" in lower_url:
+            log_func("【下载】已加载 YouTube Cookies 鉴权凭据...")
+        else:
+            log_func("【下载】已加载 Bilibili SESSDATA 鉴权凭据...")
+
     temp_dir = tempfile.gettempdir()
     
     # Define custom path for yt-dlp to look at our prebundled binary if it exists on Windows
@@ -161,6 +201,16 @@ def extract_video_details(url: str, sessdata: str = None, log_func: Callable[[st
                 except:
                     pass
                     
+            # Extract stream url and headers for ffmpeg range-request keyframing
+            stream_url = info.get('url', '')
+            if not stream_url and info.get('formats'):
+                video_formats = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('url')]
+                if video_formats:
+                    # Pick a lightweight video format URL
+                    stream_url = video_formats[0].get('url', '')
+
+            http_headers = info.get('http_headers', {})
+
             return {
                 "title": title,
                 "author": author,
@@ -168,7 +218,9 @@ def extract_video_details(url: str, sessdata: str = None, log_func: Callable[[st
                 "upload_date": upload_date,
                 "thumbnail_url": thumbnail_url,
                 "cleaned_text": cleaned_subtitle,
-                "platform": "Bilibili" if "bilibili.com" in url or "b23.tv" in url else "YouTube"
+                "platform": "Bilibili" if "bilibili.com" in url or "b23.tv" in url else "YouTube",
+                "stream_url": stream_url,
+                "http_headers": http_headers
             }
             
     except Exception as e:
