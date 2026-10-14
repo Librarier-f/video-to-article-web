@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Settings, Link, Sparkles, UploadCloud, CheckCircle2, Trash2 } from "lucide-react";
 import type { TaskCreatePayload } from "../utils/api";
 
@@ -47,6 +47,11 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
     setIsBilibili(lowerUrl.includes("bilibili.com") || lowerUrl.includes("b23.tv"));
     setIsYoutube(lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be"));
   }, [url]);
+
+  const hasYoutubeAuthToken = useMemo(() => {
+    if (!youtubeCookies) return false;
+    return /SID|LOGIN_INFO|SAPISID|__Secure/i.test(youtubeCookies);
+  }, [youtubeCookies]);
 
   useEffect(() => {
     if (provider === "minimax") {
@@ -361,17 +366,23 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   />
 
                   {youtubeCookies ? (
-                    <div className="flex items-center justify-between bg-bg-bezel border border-emerald-500/30 rounded-xl px-3.5 py-2.5">
+                    <div className={`flex items-center justify-between bg-bg-bezel border rounded-xl px-3.5 py-2.5 transition-all ${
+                      hasYoutubeAuthToken ? "border-emerald-500/30" : "border-amber-500/40 bg-amber-500/[0.03]"
+                    }`}>
                       <div className="flex items-center gap-2.5 overflow-hidden">
-                        <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
+                        <div className={`p-1.5 rounded-lg shrink-0 ${
+                          hasYoutubeAuthToken ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"
+                        }`}>
                           <CheckCircle2 size={16} />
                         </div>
                         <div className="flex flex-col min-w-0">
                           <span className="text-xs font-medium text-text-title truncate">
                             {youtubeCookieFilename || "cookies.txt"}
                           </span>
-                          <span className="text-[10px] text-text-muted">
-                            {youtubeCookieSize ? formatFileSize(youtubeCookieSize) : "已装载"} · 状态正常
+                          <span className={`text-[10px] ${hasYoutubeAuthToken ? "text-emerald-400/90" : "text-amber-400 font-medium"}`}>
+                            {youtubeCookieSize ? formatFileSize(youtubeCookieSize) : "已装载"} · {
+                              hasYoutubeAuthToken ? "登录凭据有效 (SID/LOGIN_INFO)" : "⚠️ 未检测到账号登录态(建议在已登录浏览器重新导出)"
+                            }
                           </span>
                         </div>
                       </div>
@@ -413,7 +424,7 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                         点击选择或拖拽 <span className="text-accent-text font-semibold">cookies.txt</span> 文件至此
                       </div>
                       <div className="text-[10px] text-text-muted">
-                        仅支持标准的 Netscape HTTP Cookie File (.txt)
+                        支持 Netscape 格式、JSON (Cookie-Editor) 或请求标头
                       </div>
                     </div>
                   )}
@@ -443,7 +454,7 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   </div>
 
                   <span className="text-[10px] text-text-muted leading-relaxed">
-                    <strong>获取方式：</strong>在 Chrome/Edge 浏览器安装插件「Get cookies.txt LOCALLY」➔ 打开 youtube.com ➔ 点击插件导出 <code className="bg-bg-bezel px-1 py-0.5 rounded text-accent-text">cookies.txt</code> 后直接上传此处。
+                    <strong>💡 正确导出指引：</strong>在 Chrome/Edge 浏览器安装插件「Get cookies.txt LOCALLY」➔ 登录并刷新 youtube.com（确保右上角显示已登录头像）➔ 点击插件导出 <code className="bg-bg-bezel px-1 py-0.5 rounded text-accent-text">cookies.txt</code> 后直接上传此处。
                   </span>
                 </div>
               )}

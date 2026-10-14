@@ -1,8 +1,9 @@
 import os
 import re
+import json
 import tempfile
 import yt_dlp
-from typing import Callable, Dict, Any, Optional
+from typing import Callable, Dict, Any, Optional, Tuple
 
 def create_temp_cookies(sessdata: str) -> Optional[str]:
     """
@@ -21,23 +22,89 @@ def create_temp_cookies(sessdata: str) -> Optional[str]:
         f.write(content)
     return path
 
-def create_temp_yt_cookies(youtube_cookies: str) -> Optional[str]:
+def normalize_yt_cookies(raw_cookies: str) -> Tuple[str, bool]:
     """
-    Creates a temporary Netscape-formatted cookies file using the uploaded YouTube cookies content.
+    Normalizes YouTube cookies from JSON, key-value header, or standard Netscape text
+    into a valid Netscape-formatted string, and detects whether it contains logged-in tokens.
+    """
+    text = raw_cookies.strip()
+    if not text:
+        return "", False
+
+    # Check for presence of authenticated user session tokens
+    auth_tokens = ["SID", "SAPISID", "LOGIN_INFO", "__Secure-1PSID", "__Secure-3PSID", "SSID", "HSID"]
+    has_auth = any(token in text for token in auth_tokens)
+
+    # 1. JSON Format (e.g. Cookie-Editor / EditThisCookie export)
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            items = json.loads(text)
+            lines = ["# Netscape HTTP Cookie File"]
+            for item in items:
+                domain = item.get("domain", ".youtube.com")
+                flag = "TRUE" if domain.startswith(".") else "FALSE"
+                path = item.get("path", "/")
+                secure = "TRUE" if item.get("secure", False) else "FALSE"
+                expiration = str(int(item.get("expirationDate", 2147483647)))
+                name = item.get("name", "")
+                value = item.get("value", "")
+                if name:
+                    lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiration}\t{name}\t{value}")
+            return "\n".join(lines) + "\n", has_auth
+        except Exception:
+            pass
+
+    # 2. Standard Netscape Format (contains tab delimiters)
+    if "\t" in text:
+        lines = []
+        if not text.startswith("# Netscape HTTP Cookie File"):
+            lines.append("# Netscape HTTP Cookie File")
+        for line in text.splitlines():
+            clean = line.strip()
+            if not clean:
+                continue
+            if clean.startswith("#") and not clean.startswith("# Netscape"):
+                continue
+            lines.append(clean)
+        return "\n".join(lines) + "\n", has_auth
+
+    # 3. Raw header string (key=value; key=value)
+    if "=" in text:
+        lines = ["# Netscape HTTP Cookie File"]
+        tokens = [t.strip() for t in text.replace("\n", ";").split(";") if t.strip()]
+        for token in tokens:
+            if "=" in token:
+                k, v = token.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if k:
+                    lines.append(f".youtube.com\tTRUE\t/\tTRUE\t2147483647\t{k}\t{v}")
+                    lines.append(f".google.com\tTRUE\t/\tTRUE\t2147483647\t{k}\t{v}")
+        return "\n".join(lines) + "\n", has_auth
+
+    # Fallback as plain string with header
+    if not text.startswith("# Netscape HTTP Cookie File"):
+        text = "# Netscape HTTP Cookie File\n" + text
+    if not text.endswith("\n"):
+        text += "\n"
+    return text, has_auth
+
+def create_temp_yt_cookies(youtube_cookies: str) -> Tuple[Optional[str], bool]:
+    """
+    Creates a temporary Netscape-formatted cookies file using the uploaded YouTube cookies content,
+    and returns (file_path, is_authenticated).
     """
     if not youtube_cookies or not youtube_cookies.strip():
-        return None
+        return None, False
     
-    content = youtube_cookies.strip()
-    if not content.startswith("# Netscape HTTP Cookie File"):
-        content = "# Netscape HTTP Cookie File\n" + content
-    if not content.endswith("\n"):
-        content += "\n"
+    content, is_authenticated = normalize_yt_cookies(youtube_cookies)
+    if not content.strip():
+        return None, False
         
     fd, path = tempfile.mkstemp(suffix="_cookies.txt", prefix="yt_")
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
         f.write(content)
-    return path
+    return path, is_authenticated
 
 def clean_subtitle(raw_text: str, is_vtt: bool = False) -> str:
     """
@@ -89,31 +156,30 @@ def extract_video_details(
         log_func("【下载】开始解析视频源并提取字幕...")
         
     cookie_path = None
+    is_authenticated = False
     lower_url = url.lower()
     if "bilibili.com" in lower_url or "b23.tv" in lower_url:
         cookie_path = create_temp_cookies(sessdata)
     elif "youtube.com" in lower_url or "youtu.be" in lower_url:
-        cookie_path = create_temp_yt_cookies(youtube_cookies)
+        cookie_path, is_authenticated = create_temp_yt_cookies(youtube_cookies)
     else:
         if youtube_cookies:
-            cookie_path = create_temp_yt_cookies(youtube_cookies)
+            cookie_path, is_authenticated = create_temp_yt_cookies(youtube_cookies)
         elif sessdata:
             cookie_path = create_temp_cookies(sessdata)
 
     if cookie_path and log_func:
         if "youtube.com" in lower_url or "youtu.be" in lower_url:
-            log_func("【下载】已加载 YouTube Cookies 鉴权凭据...")
+            if is_authenticated:
+                log_func("【下载】已加载 YouTube Cookies 鉴权凭据（检测到有效登录态 SID/LOGIN_INFO）...")
+            else:
+                log_func("【下载】已加载 YouTube Cookies，⚠️ 警告：未检测到有效账号登录凭证(如 SID/LOGIN_INFO)，若被风控拦截请使用已登录账号导出的 Cookies...")
         else:
             log_func("【下载】已加载 Bilibili SESSDATA 鉴权凭据...")
 
     temp_dir = tempfile.gettempdir()
     
-    # Define custom path for yt-dlp to look at our prebundled binary if it exists on Windows
-    # or fallback to system path.
-    # On Windows: C:\Users\19849\.gemini\config\skills\video-to-article-skill\component\yt-dlp.exe
-    bundled_ytdlp = r"C:\Users\19849\.gemini\config\skills\video-to-article-skill\component\yt-dlp.exe"
-    
-    # We configure yt-dlp settings
+    # We configure modern yt-dlp settings
     ydl_opts = {
         'skip_download': True,
         'writesubtitles': True,
@@ -124,13 +190,17 @@ def extract_video_details(
         'outtmpl': os.path.join(temp_dir, 'ytdlp_%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
+        'js_runtimes': {'node': {}},
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['web', 'mweb']
+            }
+        }
     }
-    
-    # Use bundled yt-dlp binary if available on Windows
-    if os.name == 'nt' and os.path.exists(bundled_ytdlp):
-        # yt_dlp has no direct 'ffmpeg_location' or 'executable' option inside YoutubeDL, 
-        # but we can set it via paths or let it fallback. Actually, importing yt_dlp uses the python library.
-        pass
 
     if cookie_path:
         ydl_opts['cookiefile'] = cookie_path
@@ -229,4 +299,16 @@ def extract_video_details(
                 os.remove(cookie_path)
             except:
                 pass
-        raise Exception(f"视频解析失败: {str(e)}")
+        err_msg = str(e)
+        if "Sign in to confirm you’re not a bot" in err_msg or "Sign in to confirm you're not a bot" in err_msg:
+            friendly_err = (
+                "YouTube 触发了严格的人机验证拦截（Sign in to confirm you're not a bot）。\n\n"
+                "【解决方案】：\n"
+                "1. 请确认导出的 Cookies 是否来自【已登录 YouTube/Google 账号】的浏览器页面；\n"
+                "2. 推荐在 Chrome / Edge 中安装扩展【Get cookies.txt LOCALLY】（或使用 Cookie-Editor 导出为 Netscape 格式）；\n"
+                "3. 保持 YouTube 页面处于登录状态，点击扩展导出 cookies.txt，并在本系统重新上传；\n"
+                "4. 若已上传且包含登录态仍被拦截，说明当前代理节点/IP 已被 YouTube 临时拉黑，建议切换科学上网节点或断开后重连重试。"
+            )
+            raise Exception(friendly_err)
+        raise Exception(f"视频解析失败: {err_msg}")
+

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Key, Eye, EyeOff, Save, Check, X, Link, RefreshCw, UploadCloud } from "lucide-react";
 import { fetchImaKnowledgeBases } from "../utils/api";
 
@@ -22,6 +22,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [youtubeCookies, setYoutubeCookies] = useState("");
   const [youtubeCookieFilename, setYoutubeCookieFilename] = useState("");
   const ytFileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasYoutubeAuthToken = useMemo(() => {
+    if (!youtubeCookies) return false;
+    return /SID|LOGIN_INFO|SAPISID|__Secure/i.test(youtubeCookies);
+  }, [youtubeCookies]);
 
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
     minimax: false,
@@ -252,10 +257,17 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
               />
 
               {youtubeCookies ? (
-                <div className="flex items-center justify-between bg-bg-bezel border border-emerald-500/30 rounded-xl px-3 py-2">
+                <div className={`flex items-center justify-between bg-bg-bezel border rounded-xl px-3 py-2 transition-all ${
+                  hasYoutubeAuthToken ? "border-emerald-500/30" : "border-amber-500/40 bg-amber-500/[0.03]"
+                }`}>
                   <div className="flex items-center gap-2 text-xs text-text-title truncate">
-                    <Check size={14} className="text-emerald-400 shrink-0" />
+                    <Check size={14} className={hasYoutubeAuthToken ? "text-emerald-400 shrink-0" : "text-amber-400 shrink-0"} />
                     <span className="truncate">{youtubeCookieFilename || "cookies.txt (已存储)"}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                      hasYoutubeAuthToken ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400 font-medium"
+                    }`}>
+                      {hasYoutubeAuthToken ? "登录态有效" : "⚠️ 未检测到账号登录态"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
