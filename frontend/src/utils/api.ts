@@ -33,6 +33,7 @@ export interface TaskCreatePayload {
   style: string;
   language: string;
   sessdata?: string;
+  youtube_cookies?: string;
   provider: string;
   model: string;
   api_base_url?: string;

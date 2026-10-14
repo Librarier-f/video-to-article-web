@@ -7,6 +7,7 @@ class TaskCreate(BaseModel):
     style: str = Field(default="notion_dark", description="Visual theme style of the output HTML")
     language: str = Field(default="zh", description="Output language (zh/en)")
     sessdata: Optional[str] = Field(default=None, description="Bilibili SESSDATA Cookie value")
+    youtube_cookies: Optional[str] = Field(default=None, description="YouTube Netscape formatted cookies content")
     provider: str = Field(default="gemini", description="LLM Provider (gemini, claude, openai, deepseek, kimi)")
     model: str = Field(default="gemini-2.5-flash", description="Model name to write the article")
     api_base_url: Optional[str] = Field(default=None, description="Custom API base URL")

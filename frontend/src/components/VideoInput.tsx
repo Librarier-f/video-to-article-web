@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Settings, Link, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Settings, Link, Sparkles, UploadCloud, CheckCircle2, Trash2 } from "lucide-react";
 import type { TaskCreatePayload } from "../utils/api";
 
 interface VideoInputProps {
@@ -11,7 +11,16 @@ interface VideoInputProps {
 export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: VideoInputProps) {
   const [url, setUrl] = useState("");
   const [isBilibili, setIsBilibili] = useState(false);
+  const [isYoutube, setIsYoutube] = useState(false);
   
+  // YouTube Cookies State
+  const [youtubeCookies, setYoutubeCookies] = useState("");
+  const [youtubeCookieFilename, setYoutubeCookieFilename] = useState("");
+  const [youtubeCookieSize, setYoutubeCookieSize] = useState<number | null>(null);
+  const [saveYoutubeCookieLocal, setSaveYoutubeCookieLocal] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form options
   const [style, setStyle] = useState("notion_dark");
   const [language, setLanguage] = useState("zh");
@@ -21,14 +30,22 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
   const [apiBaseUrl, setApiBaseUrl] = useState("");
   const [customApiKey, setCustomApiKey] = useState("");
 
-  // Track Bilibili URL to show Cookie input
+  // Load saved YouTube cookies from localStorage on mount
+  useEffect(() => {
+    const savedYtCookie = localStorage.getItem("byok_youtube_cookies") || "";
+    const savedYtName = localStorage.getItem("byok_youtube_cookie_filename") || "";
+    if (savedYtCookie) {
+      setYoutubeCookies(savedYtCookie);
+      setYoutubeCookieFilename(savedYtName || "cookies.txt (已保存)");
+      setYoutubeCookieSize(new Blob([savedYtCookie]).size);
+    }
+  }, []);
+
+  // Track Bilibili or YouTube URL to show Cookie inputs
   useEffect(() => {
     const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes("bilibili.com") || lowerUrl.includes("b23.tv")) {
-      setIsBilibili(true);
-    } else {
-      setIsBilibili(false);
-    }
+    setIsBilibili(lowerUrl.includes("bilibili.com") || lowerUrl.includes("b23.tv"));
+    setIsYoutube(lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be"));
   }, [url]);
 
   useEffect(() => {
@@ -47,6 +64,64 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
     }
   }, [provider]);
 
+  const handleFileUpload = (file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        setYoutubeCookies(text);
+        setYoutubeCookieFilename(file.name);
+        setYoutubeCookieSize(file.size);
+        if (saveYoutubeCookieLocal) {
+          localStorage.setItem("byok_youtube_cookies", text);
+          localStorage.setItem("byok_youtube_cookie_filename", file.name);
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleClearCookies = () => {
+    setYoutubeCookies("");
+    setYoutubeCookieFilename("");
+    setYoutubeCookieSize(null);
+    localStorage.removeItem("byok_youtube_cookies");
+    localStorage.removeItem("byok_youtube_cookie_filename");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileUpload(e.dataTransfer.files[0]);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
@@ -56,6 +131,7 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
       style,
       language,
       sessdata: isBilibili && sessdata.trim() ? sessdata.trim() : undefined,
+      youtube_cookies: isYoutube && youtubeCookies.trim() ? youtubeCookies.trim() : undefined,
       provider,
       model,
       api_base_url: apiBaseUrl.trim() ? apiBaseUrl.trim() : undefined,
@@ -258,6 +334,116 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
                   />
                   <span className="text-[10px] text-text-muted leading-relaxed">
                     <strong>获取方式：</strong>在浏览器登录 B站 ➔ 按 F12 打开开发者工具 ➔ Application/应用 ➔ Cookies ➔ bilibili.com ➔ 复制 SESSDATA 列的 Value 粘贴至此。
+                  </span>
+                </div>
+              )}
+
+              {/* YouTube Cookies File Upload (Only shown when YouTube detected) */}
+              {isYoutube && (
+                <div className="flex flex-col gap-2.5 md:col-span-2 bg-accent-light border border-accent-border rounded-xl p-4 animate-fade-up">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-accent-text font-semibold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                      YouTube Cookies 文件上传（Netscape 格式 cookies.txt）
+                    </label>
+                    <span className="text-[9px] text-text-muted bg-bg-card/70 px-2 py-0.5 rounded-full border border-border-card">
+                      解决 Bot 拦截 / 私享与多语种字幕
+                    </span>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".txt"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={isLoading}
+                  />
+
+                  {youtubeCookies ? (
+                    <div className="flex items-center justify-between bg-bg-bezel border border-emerald-500/30 rounded-xl px-3.5 py-2.5">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg shrink-0">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-medium text-text-title truncate">
+                            {youtubeCookieFilename || "cookies.txt"}
+                          </span>
+                          <span className="text-[10px] text-text-muted">
+                            {youtubeCookieSize ? formatFileSize(youtubeCookieSize) : "已装载"} · 状态正常
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isLoading}
+                          className="text-[11px] text-text-muted hover:text-text-title px-2.5 py-1 rounded-lg hover:bg-bg-card transition-spring cursor-pointer"
+                        >
+                          替换
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearCookies}
+                          disabled={isLoading}
+                          className="text-[11px] text-red-400 hover:text-red-300 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-spring flex items-center gap-1 cursor-pointer"
+                          title="移除已保存的 Cookies"
+                        >
+                          <Trash2 size={13} />
+                          <span>清除</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-spring ${
+                        isDragging
+                          ? "border-accent-text bg-accent-light/50"
+                          : "border-border-bezel bg-bg-bezel/50 hover:border-accent-border hover:bg-bg-bezel"
+                      }`}
+                    >
+                      <UploadCloud size={20} className="text-accent-text" />
+                      <div className="text-xs text-text-title font-medium text-center">
+                        点击选择或拖拽 <span className="text-accent-text font-semibold">cookies.txt</span> 文件至此
+                      </div>
+                      <div className="text-[10px] text-text-muted">
+                        仅支持标准的 Netscape HTTP Cookie File (.txt)
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveYoutubeCookieLocal}
+                        onChange={(e) => {
+                          setSaveYoutubeCookieLocal(e.target.checked);
+                          if (!e.target.checked) {
+                            localStorage.removeItem("byok_youtube_cookies");
+                            localStorage.removeItem("byok_youtube_cookie_filename");
+                          } else if (youtubeCookies) {
+                            localStorage.setItem("byok_youtube_cookies", youtubeCookies);
+                            localStorage.setItem("byok_youtube_cookie_filename", youtubeCookieFilename || "cookies.txt");
+                          }
+                        }}
+                        disabled={isLoading}
+                        className="rounded border-border-bezel text-accent-text focus:ring-0 bg-bg-bezel cursor-pointer"
+                      />
+                      <span className="text-[10px] text-text-muted">
+                        在本地浏览器（LocalStorage）保存此 Cookies，下次自动装载
+                      </span>
+                    </label>
+                  </div>
+
+                  <span className="text-[10px] text-text-muted leading-relaxed">
+                    <strong>获取方式：</strong>在 Chrome/Edge 浏览器安装插件「Get cookies.txt LOCALLY」➔ 打开 youtube.com ➔ 点击插件导出 <code className="bg-bg-bezel px-1 py-0.5 rounded text-accent-text">cookies.txt</code> 后直接上传此处。
                   </span>
                 </div>
               )}

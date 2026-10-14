@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Key, Eye, EyeOff, Save, Check, X, Link, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Key, Eye, EyeOff, Save, Check, X, Link, RefreshCw, UploadCloud } from "lucide-react";
 import { fetchImaKnowledgeBases } from "../utils/api";
 
 interface SettingsPanelProps {
@@ -17,6 +17,11 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [imaKbId, setImaKbId] = useState("");
   const [kbList, setKbList] = useState<{ knowledge_base_id: string; name: string }[]>([]);
   const [isFetchingKbs, setIsFetchingKbs] = useState(false);
+
+  // YouTube Cookies State
+  const [youtubeCookies, setYoutubeCookies] = useState("");
+  const [youtubeCookieFilename, setYoutubeCookieFilename] = useState("");
+  const ytFileInputRef = useRef<HTMLInputElement>(null);
 
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
     minimax: false,
@@ -38,7 +43,22 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     setImaClientId(localStorage.getItem("byok_ima_client_id") || "");
     setImaKey(localStorage.getItem("byok_ima_key") || "");
     setImaKbId(localStorage.getItem("byok_ima_kb_id") || "");
+    setYoutubeCookies(localStorage.getItem("byok_youtube_cookies") || "");
+    setYoutubeCookieFilename(localStorage.getItem("byok_youtube_cookie_filename") || "");
   }, []);
+
+  const handleYtFileUpload = (file: File) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (text) {
+        setYoutubeCookies(text);
+        setYoutubeCookieFilename(file.name);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleSave = () => {
     localStorage.setItem("byok_minimax_key", minimaxKey.trim());
@@ -49,6 +69,14 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     localStorage.setItem("byok_ima_client_id", imaClientId.trim());
     localStorage.setItem("byok_ima_key", imaKey.trim());
     localStorage.setItem("byok_ima_kb_id", imaKbId);
+
+    if (youtubeCookies) {
+      localStorage.setItem("byok_youtube_cookies", youtubeCookies);
+      localStorage.setItem("byok_youtube_cookie_filename", youtubeCookieFilename || "cookies.txt");
+    } else {
+      localStorage.removeItem("byok_youtube_cookies");
+      localStorage.removeItem("byok_youtube_cookie_filename");
+    }
 
     setSaved(true);
     setTimeout(() => {
@@ -201,6 +229,69 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
                 </select>
               </div>
             ) : null}
+
+            {/* Global YouTube Cookies Config */}
+            <div className="flex flex-col gap-2 pt-3 border-t border-border-card">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-text-title font-semibold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                  YouTube 默认 Cookies (Netscape cookies.txt)
+                </label>
+                <span className="text-[9px] text-text-muted">保存在本地 LocalStorage</span>
+              </div>
+              <input
+                type="file"
+                ref={ytFileInputRef}
+                accept=".txt"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleYtFileUpload(e.target.files[0]);
+                  }
+                }}
+                className="hidden"
+              />
+
+              {youtubeCookies ? (
+                <div className="flex items-center justify-between bg-bg-bezel border border-emerald-500/30 rounded-xl px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs text-text-title truncate">
+                    <Check size={14} className="text-emerald-400 shrink-0" />
+                    <span className="truncate">{youtubeCookieFilename || "cookies.txt (已存储)"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => ytFileInputRef.current?.click()}
+                      className="text-[11px] text-text-muted hover:text-text-title px-2 py-1 rounded hover:bg-bg-card transition-spring cursor-pointer"
+                    >
+                      重新选择
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYoutubeCookies("");
+                        setYoutubeCookieFilename("");
+                        if (ytFileInputRef.current) ytFileInputRef.current.value = "";
+                      }}
+                      className="text-[11px] text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-spring cursor-pointer"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => ytFileInputRef.current?.click()}
+                  className="w-full py-2.5 border border-dashed border-border-bezel hover:border-accent-border rounded-xl bg-bg-bezel/40 hover:bg-bg-bezel flex items-center justify-center gap-2 text-xs text-text-muted hover:text-text-title transition-spring cursor-pointer"
+                >
+                  <UploadCloud size={14} className="text-accent-text" />
+                  <span>上传 YouTube cookies.txt 文件</span>
+                </button>
+              )}
+              <span className="text-[10px] text-text-muted">
+                在解析限制级或需要人机验证的 YouTube 视频时自动生效。
+              </span>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border-card">
