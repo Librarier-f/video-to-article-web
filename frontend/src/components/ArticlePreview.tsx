@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from "react";
-import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check, Bot, Lightbulb, ChevronDown } from "lucide-react";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check, Bot, Lightbulb, ChevronDown, X } from "lucide-react";
 import { getDownloadUrl, getMarkdownDownloadUrl, exportToIma } from "../utils/api";
 import type { ArticleDetailResponseData } from "../utils/api";
 
@@ -13,6 +13,63 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
   const [activeTab, setActiveTab] = useState<"html" | "markdown" | "anki">("html");
   const [copied, setCopied] = useState(false);
   const [isExportingIma, setIsExportingIma] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+
+  // Listen for clicks on images inside the article iframe to trigger Lightbox
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const attachListener = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+
+        const handleClick = (e: MouseEvent) => {
+          const target = e.target as HTMLElement | null;
+          if (!target) return;
+
+          const img = target.closest("img") as HTMLImageElement | null;
+          if (img && img.src) {
+            e.preventDefault();
+            const figure = img.closest("figure");
+            const figcaption = figure?.querySelector("figcaption");
+            const captionText = figcaption?.textContent?.trim() || img.alt || "视频关键帧截图";
+            setLightboxImage({
+              src: img.src,
+              alt: captionText,
+            });
+          }
+        };
+
+        doc.addEventListener("click", handleClick);
+        return () => {
+          doc.removeEventListener("click", handleClick);
+        };
+      } catch (err) {
+        console.warn("Could not attach lightbox click listener to iframe:", err);
+      }
+    };
+
+    iframe.addEventListener("load", attachListener);
+    const cleanup = attachListener();
+
+    return () => {
+      iframe.removeEventListener("load", attachListener);
+      if (cleanup) cleanup();
+    };
+  }, [article.html_content, activeTab]);
+
+  // Handle ESC key to close lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const parsedCards = useMemo(() => {
     if (!article.anki_csv) return [];
@@ -260,6 +317,49 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
           )}
         </div>
       </div>
+
+      {/* Interactive High-Definition Image Lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/80 backdrop-blur-md animate-fade animate-duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-5xl max-h-[90vh] w-full flex flex-col items-center bg-bg-card border border-border-card rounded-2xl shadow-2xl overflow-hidden p-3 animate-scale animate-duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="w-full flex items-center justify-between px-3 py-2 border-b border-border-card/50">
+              <span className="text-xs font-semibold text-text-title truncate max-w-[85%]">
+                {lightboxImage.alt}
+              </span>
+              <button
+                onClick={() => setLightboxImage(null)}
+                className="p-1.5 rounded-full hover:bg-bg-bezel text-text-muted hover:text-text-title transition-colors cursor-pointer"
+                title="关闭 (ESC)"
+              >
+                <X size={16} strokeWidth={2} />
+              </button>
+            </div>
+
+            {/* High-res Image Preview */}
+            <div className="relative overflow-auto max-h-[72vh] w-full flex items-center justify-center p-2 bg-black/30 rounded-xl my-2">
+              <img
+                src={lightboxImage.src}
+                alt={lightboxImage.alt}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg select-none"
+              />
+            </div>
+
+            {/* Footer with caption */}
+            {lightboxImage.alt && (
+              <div className="w-full px-3 py-1.5 text-center text-xs text-text-muted truncate">
+                {lightboxImage.alt}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

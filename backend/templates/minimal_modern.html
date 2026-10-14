@@ -263,6 +263,44 @@
       border: none;
       padding: 0;
       background: none;
+    /* Multimodal Article Figures */
+    .article-figure {
+      margin: 2.25rem 0;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--paper-alt);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    }
+    .article-figure img {
+      width: 100%;
+      max-height: 520px;
+      object-fit: cover;
+      display: block;
+      cursor: zoom-in;
+    }
+    .article-figure figcaption {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--ink-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      background: var(--paper);
+      line-height: 1.5;
+    }
+    .fig-badge {
+      display: inline-flex;
+      align-items: center;
+      background: var(--paper-alt);
+      color: var(--ink);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     /* Footer */

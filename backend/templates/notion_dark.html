@@ -298,6 +298,45 @@
       color: inherit;
     }
 
+    /* Multimodal Article Figures */
+    .article-figure {
+      margin: 2.25rem 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .article-figure img {
+      width: 100%;
+      max-height: 520px;
+      object-fit: cover;
+      display: block;
+      cursor: zoom-in;
+    }
+    .article-figure figcaption {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-base);
+      line-height: 1.5;
+    }
+    .fig-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(46, 170, 220, 0.15);
+      color: #2eaadc;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
     /* Footer */
     .divider {
       border: none;
