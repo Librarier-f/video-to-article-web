@@ -1,9 +1,13 @@
 import os
 import re
 import json
+import logging
 import tempfile
+import urllib.request
 import yt_dlp
 from typing import Callable, Dict, Any, Optional, Tuple
+
+logger = logging.getLogger("video-to-article.converter")
 
 def create_temp_cookies(sessdata: str) -> Optional[str]:
     """
@@ -185,21 +189,18 @@ def extract_video_details(
         'writesubtitles': True,
         'writeautomaticsub': True,
         # Try downloading simplified Chinese, Chinese, automatic Chinese, and English
-        'subtitleslangs': ['zh-Hans', 'zh', 'ai-zh', 'en'],
+        'subtitleslangs': ['zh-Hans', 'zh', 'ai-zh', 'en', 'en-orig'],
         # Template output for downloaded subtitle files
         'outtmpl': os.path.join(temp_dir, 'ytdlp_%(id)s.%(ext)s'),
         'quiet': True,
         'no_warnings': True,
         'js_runtimes': {'node': {}},
+        'format': 'best/bestvideo+bestaudio/worst',
+        'ignore_no_formats_error': True,
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
             'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
         },
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['web', 'mweb']
-            }
-        }
     }
 
     if cookie_path:
@@ -246,7 +247,30 @@ def extract_video_details(
                     if f.startswith(f"ytdlp_{video_id}") and f.endswith(('.srt', '.vtt')):
                         sub_file = os.path.join(temp_dir, f)
                         break
-                        
+
+            # Second fallback: If yt-dlp did not write subtitle file to disk, try downloading directly from track URLs
+            if not sub_file:
+                subs = info.get('subtitles') or {}
+                auto_subs = info.get('automatic_captions') or {}
+                for target_lang in ['zh-Hans', 'zh', 'ai-zh', 'en', 'en-orig']:
+                    tracks = subs.get(target_lang) or auto_subs.get(target_lang) or []
+                    if tracks:
+                        best_track = next((t for t in tracks if t.get('ext') in ('vtt', 'srt')), tracks[0])
+                        sub_url = best_track.get('url')
+                        if sub_url:
+                            try:
+                                sub_ext = best_track.get('ext', 'vtt')
+                                fallback_path = os.path.join(temp_dir, f"ytdlp_{video_id}.{target_lang}.{sub_ext}")
+                                req = urllib.request.Request(sub_url, headers=ydl_opts.get('http_headers', {}))
+                                with urllib.request.urlopen(req, timeout=15) as resp:
+                                    with open(fallback_path, 'wb') as out_f:
+                                        out_f.write(resp.read())
+                                if os.path.exists(fallback_path) and os.path.getsize(fallback_path) > 0:
+                                    sub_file = fallback_path
+                                    break
+                            except Exception as dl_err:
+                                logger.warning(f"Direct subtitle URL download failed for {target_lang}: {dl_err}")
+
             if not sub_file:
                 raise Exception("未能找到该视频的任何字幕（CC字幕或AI生成字幕）。请确保原视频附带字幕。")
             
