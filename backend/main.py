@@ -1,8 +1,11 @@
 from fastapi import FastAPI, Depends, BackgroundTasks, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
+import os
+import shutil
 import json
 import re
 
@@ -19,6 +22,9 @@ class ExportImaRequest(BaseModel):
 
 # Initialize database tables on startup
 Base.metadata.create_all(bind=engine)
+
+# Ensure snapshots directory exists and mount static files
+os.makedirs("snapshots", exist_ok=True)
 
 # Safely check and add markdown_content column if it doesn't exist
 try:
@@ -55,6 +61,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files for video snapshot keyframes
+app.mount("/api/snapshots", StaticFiles(directory="snapshots"), name="snapshots")
 
 @app.get("/")
 def read_root():
@@ -128,7 +137,9 @@ def create_task(
         task_in.model,
         task_in.api_base_url,
         task_in.sessdata,
-        keys
+        keys,
+        None,
+        task_in.youtube_cookies
     )
 
     return db_task
@@ -166,11 +177,18 @@ def delete_article(article_id: int, db: Session = Depends(get_db)):
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
         
-    # Delete the corresponding task if it exists
+    # Delete the corresponding task and local snapshot files if it exists
     if article.task_id:
         task = db.query(Task).filter(Task.id == article.task_id).first()
         if task:
             db.delete(task)
+            
+        task_snapshots_dir = os.path.join("snapshots", article.task_id)
+        if os.path.exists(task_snapshots_dir):
+            try:
+                shutil.rmtree(task_snapshots_dir, ignore_errors=True)
+            except Exception:
+                pass
             
     db.delete(article)
     db.commit()
