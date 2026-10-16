@@ -1,19 +1,25 @@
+import asyncio
 import json
 import logging
 import os
 import re
 import traceback
 from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
+from time import perf_counter
+from html import escape
+from markdownify import markdownify
 from sqlalchemy.orm import Session
 from typing import Optional
 from models import Task, Article
 from services.converter import extract_video_details
-from services.llm_service import call_llm_api
+from services.llm_service import call_llm_api, llm_session
 from services.stream_capture import capture_keyframes_from_stream
-from services.keyframe_planner import predict_keyframe_timestamps
+from services.keyframe_planner import predict_keyframe_timestamps, parse_timestamps_fallback
 from services.vision_service import analyze_frame_caption
 from services.layout_enricher import build_visual_context_prompt
+from services.pipeline import bounded_map, extract_with_progress
+from services.fast_writer import write_fast_article
+from services.document_renderer import render_document
 
 # Set up logger
 logger = logging.getLogger("video-to-article.generator")
@@ -55,32 +61,18 @@ def format_duration(seconds: float) -> str:
     return f"{minutes:02d}:{secs:02d}"
 
 def html_to_markdown(html_content: str) -> str:
-    """Converts standard simple HTML tag output to Markdown text."""
-    # 1. Replace <strong> and <b> with **
-    md = re.sub(r'<(?:strong|b)>(.*?)</(?:strong|b)>', r'**\1**', html_content, flags=re.DOTALL)
-    # 2. Replace <em> and <i> with *
-    md = re.sub(r'<(?:em|i)>(.*?)</(?:em|i)>', r'*\1*', md, flags=re.DOTALL)
-    # 3. Replace <h2> with ##
-    md = re.sub(r'<h2>(.*?)</h2>', r'## \1\n\n', md, flags=re.DOTALL)
-    # 4. Replace <h3> with ###
-    md = re.sub(r'<h3>(.*?)</h3>', r'### \1\n\n', md, flags=re.DOTALL)
-    # 5. Replace <blockquote> with >
-    md = re.sub(r'<blockquote>(.*?)</blockquote>', r'> \1\n\n', md, flags=re.DOTALL)
-    # 6. Replace <li> within lists
-    md = re.sub(r'<li>(.*?)</li>', r'- \1\n', md, flags=re.DOTALL)
-    # 7. Remove <ul>, </ul>, <ol>, </ol>
-    md = re.sub(r'</?(?:ul|ol)>', r'\n', md)
-    # 8. Replace <p> with newlines
-    md = re.sub(r'<p>(.*?)</p>', r'\1\n\n', md, flags=re.DOTALL)
-    # 9. Replace <br> with newlines
-    md = re.sub(r'<br\s*/?>', r'\n', md)
-    # 10. Clean any other remaining HTML tags
-    md = re.sub(r'<[^>]+>', '', md)
-    # Normalize multiple newlines
-    md = re.sub(r'\n{3,}', '\n\n', md)
-    return md.strip()
+    """Preserve article tables, code, links and figures in Markdown output."""
+    cleaned = re.sub(r'<(script|style)\b[^>]*>.*?</\1>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+    return markdownify(cleaned, heading_style="ATX", bullets="-").strip()
 
 async def generate_article_task(
+    task_id, provider, model, api_base_url, sessdata, keys, db=None, youtube_cookies=None
+):
+    async with llm_session():
+        await _generate_article_task(task_id, provider, model, api_base_url, sessdata, keys, db, youtube_cookies)
+
+
+async def _generate_article_task(
     task_id: str,
     provider: str,
     model: str,
@@ -96,6 +88,19 @@ async def generate_article_task(
     from database import SessionLocal
     
     db_created = False
+    started_at = perf_counter()
+    stage_started_at = started_at
+    visual_task = None
+    card_task = None
+
+    def record_timing(stage):
+        nonlocal stage_started_at
+        now = perf_counter()
+        elapsed = now - stage_started_at
+        stage_started_at = now
+        task_state = db.query(Task).filter(Task.id == task_id).first()
+        update_task_progress(task_id, task_state.status, task_state.progress,
+                             task_state.current_step, f"[耗时] {stage}: {elapsed:.2f}s", db)
     if db is None:
         db = SessionLocal()
         db_created = True
@@ -108,6 +113,7 @@ async def generate_article_task(
             
         video_url = task.video_url
         style = task.style or "notion_dark"
+        mode = task.generation_mode or "fast"
         target_lang = "【中文】" if task.language == "zh" else "【英文 (English)】"
         
         # Track token usage
@@ -121,7 +127,10 @@ async def generate_article_task(
             def log_converter(msg: str):
                 update_task_progress(task_id, "downloading", 15.0, "正在提取视频与字幕...", msg, db)
                 
-            details = extract_video_details(video_url, sessdata, log_converter, youtube_cookies=youtube_cookies)
+            details = await extract_with_progress(
+                extract_video_details, video_url, sessdata, log_converter, youtube_cookies
+            )
+            record_timing("视频解析与字幕提取")
             title = details["title"]
             author = details["author"]
             duration = details["duration"]
@@ -135,32 +144,42 @@ async def generate_article_task(
             sub_len = len(subtitles_text)
             update_task_progress(task_id, "processing", 25.0, "成功提取字幕，开始评估文章结构...", f"成功提取字幕，共 {sub_len} 字符。", db)
 
-            # --- Multimodal Keyframe Pipeline (Phase 2 & 3) ---
-            captured_frames = []
+            # Visual work has no database side effects and runs alongside writing.
             visual_prompt_suffix = ""
+            async def prepare_visuals():
+                if mode == "deep":
+                    timestamps = await predict_keyframe_timestamps(subtitles_text, duration, provider, model, keys, api_base_url)
+                else:
+                    # Untimed text cannot reliably predict seconds. Avoid an
+                    # extra planner request; use deterministic sampling instead.
+                    timestamps = parse_timestamps_fallback(duration)
+                frames = await asyncio.to_thread(
+                    capture_keyframes_from_stream, stream_url, timestamps,
+                    task_id, base_dir="snapshots", headers=http_headers
+                )
+                async def caption_frame(frame):
+                    frame["caption"] = await analyze_frame_caption(
+                        frame["local_path"], frame["timestamp_sec"], keys, api_base_url
+                    )
+                await bounded_map(frames, caption_frame)
+                return frames
 
-            if stream_url and duration > 30:
+            if task.include_visuals and stream_url and duration > 60:
+                visual_task = asyncio.create_task(prepare_visuals())
+
+            async def deep_visual_context():
+                if visual_task is None:
+                    return ""
                 try:
-                    update_task_progress(task_id, "planning", 28.0, "Planner Agent 正在语义分析视觉爆发点...", "正在扫描字幕中潜在的架构图与核心演示时间戳...", db)
-                    predicted_timestamps = await predict_keyframe_timestamps(subtitles_text, duration, provider, model, keys, api_base_url)
-
-                    if predicted_timestamps:
-                        update_task_progress(task_id, "capturing", 35.0, f"FFmpeg 正在定点流式抽取 {len(predicted_timestamps)} 处关键帧...", f"定点时间戳: {predicted_timestamps}", db)
-                        captured_frames = capture_keyframes_from_stream(stream_url, predicted_timestamps, task_id, base_dir="snapshots", headers=http_headers)
-
-                        if captured_frames:
-                            update_task_progress(task_id, "vision", 42.0, "Vision Agent 正在多模态提炼图表要点...", f"成功截取 {len(captured_frames)} 张有效关键帧，启动 VLM 视觉感知分析...", db)
-                            for frame in captured_frames:
-                                caption = await analyze_frame_caption(frame["local_path"], frame["timestamp_sec"], keys, api_base_url)
-                                frame["caption"] = caption
-
-                            visual_prompt_suffix = build_visual_context_prompt(captured_frames)
-                except Exception as e:
-                    logger.warning(f"Multimodal keyframe pipeline non-fatal fallback: {e}")
-                    update_task_progress(task_id, "processing", 45.0, "多模态抽帧完成/降级，继续正文生成...", f"多模态处理记录: {e}", db)
+                    frames = await asyncio.wait_for(asyncio.shield(visual_task), timeout=45.0)
+                    return build_visual_context_prompt(frames)
+                except Exception:
+                    return ""
 
             # Decide process flow based on subtitle length
             article_html = ""
+            chapters_outline = []
+            fast_cards = []
             
             # System instructions to guarantee no markdown bold is outputted and only HTML tags are generated
             system_instruction = (
@@ -176,8 +195,23 @@ async def generate_article_task(
             )
             
             # --- Short video flow (<= 3000 chars) ---
-            if sub_len <= 3000:
+            if mode == "fast":
+                update_task_progress(task_id, "writing", 35.0, "快速生成文章与知识卡片...", "启动自适应成文：中短字幕直接生成，长字幕并行提炼后合成。", db)
+
+                async def invoke(prompt, system):
+                    return await call_llm_api(provider, model, prompt, system, keys, api_base_url)
+
+                def summarized(done, total):
+                    update_task_progress(task_id, "summarizing", 35.0 + done / total * 20,
+                                         f"已提炼 {done}/{total} 段资料...", f"资料提炼 {done}/{total}", db)
+
+                result = await write_fast_article(subtitles_text, target_lang, invoke, summarized)
+                article_html, fast_cards = result.html, result.cards
+                total_tokens += result.tokens
+                record_timing("自适应正文与卡片生成")
+            elif sub_len <= 3000:
                 update_task_progress(task_id, "writing", 50.0, "正在精写文章正文...", "字数符合短文标准，启动单次模型生成...", db)
+                visual_prompt_suffix = await deep_visual_context()
                 
                 prompt = (
                     f"请根据以下视频字幕内容，整理、润色并写成一篇排版精美、富有深度的 Notion 风格自媒体文章。\n"
@@ -192,33 +226,37 @@ async def generate_article_task(
                 # Ensure raw markdown symbols are stripped
                 article_content = article_content.replace("```html", "").replace("```", "").strip()
                 article_html = article_content
+                record_timing("短文正文生成")
                 
             # --- Long video flow (> 3000 chars) ---
             else:
                 # Phase 1: Segmented Summarization
-                update_task_progress(task_id, "summarizing", 30.0, "正在对超长字幕进行分段要点整理...", "字幕较长，启动分段汇总流程...", db)
+                update_task_progress(task_id, "summarizing", 46.0, "正在对超长字幕进行分段要点整理...", "字幕较长，启动受控并发分段汇总流程...", db)
                 
                 # Slice subtitles into chunks of ~3000 characters
                 chunk_size = 3000
                 chunks = [subtitles_text[i:i+chunk_size] for i in range(0, sub_len, chunk_size)]
                 num_chunks = len(chunks)
                 
-                summaries = []
-                for idx, chunk in enumerate(chunks):
+                summarized_count = 0
+                async def summarize_chunk(chunk):
+                    nonlocal summarized_count, total_tokens
+                    chunk_prompt = f"请简明扼要地总结以下视频段落字幕的核心论点、引用的数据、金句与案例（尽量保留具体的专业名词和数值细节）。\n⚠️ 请注意：即使以下字幕是其他语言，你也必须强制使用{target_lang}输出总结内容：\n\n{chunk}"
+                    summary, usage = await call_llm_api(provider, model, chunk_prompt, "你是一个擅长提炼核心要点的专业助理。", keys, api_base_url)
+                    total_tokens += usage.get("total_tokens", usage.get("totalTokens", 0))
+                    summarized_count += 1
                     update_task_progress(
                         task_id, 
                         "summarizing", 
-                        30.0 + (idx / num_chunks * 20.0), 
-                        f"正在对超长字幕进行分段整理 ({idx+1}/{num_chunks})...", 
-                        f"整理视频第 {idx+1}/{num_chunks} 阶段内容要点...", 
+                        46.0 + (summarized_count / num_chunks * 8.0),
+                        f"已整理字幕 ({summarized_count}/{num_chunks})...",
+                        f"已完成 {summarized_count}/{num_chunks} 段摘要。",
                         db
                     )
-                    
-                    chunk_prompt = f"请简明扼要地总结以下视频段落字幕的核心论点、引用的数据、金句与案例（尽量保留具体的专业名词和数值细节）。\n⚠️ 请注意：即使以下字幕是其他语言，你也必须强制使用{target_lang}输出总结内容：\n\n{chunk}"
-                    summary, usage = await call_llm_api(provider, model, chunk_prompt, "你是一个擅长提炼核心要点的专业助理。", keys, api_base_url)
-                    total_tokens += usage.get("total_tokens", 0) if "total_tokens" in usage else (usage.get("totalTokens", 0) if "totalTokens" in usage else 0)
-                    summaries.append(summary)
-                    
+                    return summary
+
+                summaries = await bounded_map(chunks, summarize_chunk)
+                record_timing("分段摘要")
                 combined_summaries = "\n\n".join(summaries)
                 
                 # Phase 2: Outline Planning
@@ -235,6 +273,7 @@ async def generate_article_task(
                 )
                 
                 outline_response, usage = await call_llm_api(provider, model, outline_prompt, "你是一个严谨输出 JSON 格式的高级编辑系统。", keys, api_base_url)
+                record_timing("大纲规划")
                 total_tokens += usage.get("total_tokens", 0) if "total_tokens" in usage else (usage.get("totalTokens", 0) if "totalTokens" in usage else 0)
                 # Clean JSON response
                 cleaned_json = outline_response.replace("```json", "").replace("```", "").strip()
@@ -263,23 +302,17 @@ async def generate_article_task(
                         ]
                 
                 # Phase 3: Phased Writing (High-fidelity)
+                visual_prompt_suffix = await deep_visual_context()
                 update_task_progress(task_id, "writing", 60.0, "开始分章节深度精写...", f"大纲生成成功，共规划了 {len(chapters_outline)} 个章节。启动章节分阶段精写...", db)
                 
-                written_chapters = []
                 num_chapters = len(chapters_outline)
-                
-                for ch_idx, chapter in enumerate(chapters_outline):
+                written_count = 0
+
+                async def write_chapter(indexed_chapter):
+                    nonlocal written_count, total_tokens
+                    ch_idx, chapter = indexed_chapter
                     ch_title = chapter.get("title", f"第 {ch_idx+1} 章节")
                     ch_desc = chapter.get("description", "详实撰写本章内容。")
-                    
-                    update_task_progress(
-                        task_id, 
-                        "writing", 
-                        60.0 + (ch_idx / num_chapters * 30.0), 
-                        f"正在精写第 {ch_idx+1}/{num_chapters} 章节...", 
-                        f"精写中: 《{ch_title}》...", 
-                        db
-                    )
                     
                     chapter_prompt = (
                         f"请深度撰写文章的第 {ch_idx+1} 章节。\n"
@@ -300,8 +333,16 @@ async def generate_article_task(
                     # Strip markdown code blocks
                     chapter_content = chapter_content.replace("```html", "").replace("```", "").strip()
                     
-                    written_chapters.append(f"<h2>{ch_title}</h2>\n{chapter_content}")
-                    
+                    written_count += 1
+                    update_task_progress(
+                        task_id, "writing", 60.0 + written_count / num_chapters * 29.0,
+                        f"已完成 {written_count}/{num_chapters} 章节...",
+                        f"精写完成: 《{ch_title}》", db
+                    )
+                    return f"<h2>{ch_title}</h2>\n{chapter_content}"
+
+                written_chapters = await bounded_map(enumerate(chapters_outline), write_chapter)
+                record_timing("章节正文生成")
                 article_html = "\n\n".join(written_chapters)
     
             # Step 3: Render Template
@@ -311,24 +352,13 @@ async def generate_article_task(
             # Replaces **bold** with <strong>bold</strong>
             article_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', article_html)
             
-            # Load Template using Jinja2
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            template_dir = os.path.join(base_dir, "templates")
-            env = Environment(loader=FileSystemLoader(template_dir))
-            
-            template_filename = f"{style}.html"
-            if not os.path.exists(os.path.join(template_dir, template_filename)):
-                template_filename = "notion_dark.html"
-            
-            template = env.get_template(template_filename)
-            
             # Render full page
-            final_html = template.render(
+            final_html = render_document(
                 title=title,
                 platform=platform,
                 author=author,
                 publish_date=publish_date if publish_date else datetime.now().strftime("%Y-%m-%d"),
-                thumbnail_url=thumbnail_url if thumbnail_url else "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=300",
+                thumbnail_url=thumbnail_url or "",
                 duration_formatted=format_duration(duration),
                 video_url=video_url,
                 style=style,
@@ -337,7 +367,10 @@ async def generate_article_task(
             
             # Compile Markdown with TOC
             toc_lines = []
-            for ch_idx, chapter in enumerate(chapters_outline):
+            toc_outline = chapters_outline or [
+                {"title": heading} for heading in re.findall(r'<h2[^>]*>(.*?)</h2>', article_html, re.DOTALL)
+            ]
+            for ch_idx, chapter in enumerate(toc_outline):
                 ch_title = chapter.get("title", f"第 {ch_idx+1} 章节")
                 clean_ch_title = re.sub(r'<[^>]+>', '', ch_title)
                 anchor = clean_ch_title.strip().replace(" ", "-")
@@ -359,9 +392,21 @@ async def generate_article_task(
             body_markdown = html_to_markdown(article_html)
             final_markdown = md_header + toc_markdown + body_markdown
             
-            # Step 4: Generate Interactive Q&A Cards (stored in anki_csv field)
-            update_task_progress(task_id, "rendering", 95.0, "正在生成知识问答卡片...", "正在提取核心概念生成互动问答卡片...", db)
-            
+            # Publish the body before optional assets. The frontend can open it
+            # immediately using TaskResponse.article_id while enrichment runs.
+            anki_csv = json.dumps(fast_cards, ensure_ascii=False)
+            mermaid_code = ""
+            new_article = Article(
+                task_id=task_id, title=title, author=author, duration=duration,
+                publish_date=pub_date, thumbnail_url=thumbnail_url or "", video_url=video_url,
+                html_content=final_html, markdown_content=final_markdown,
+                anki_csv=anki_csv, mermaid_code=mermaid_code
+            )
+            db.add(new_article)
+            db.commit()
+            update_task_progress(task_id, "enriching", 92.0, "正文已就绪，正在补充附属内容...",
+                                 f"[首次可读正文] {perf_counter() - started_at:.2f}s，文章 ID: {new_article.id}", db)
+
             anki_prompt = (
                 f"请从以下文章内容中提取 5-10 个最核心的概念、事实或重要结论，生成用于互动学习的问答卡片数据。\n"
                 f"⚠️ 极其重要：必须严格以 JSON 数组格式输出，每个对象包含 'q' (问题) 和 'a' (答案) 两个字段。\n"
@@ -370,36 +415,59 @@ async def generate_article_task(
                 f"注意：只返回合法的 JSON 数组本身，绝对不要包含任何 markdown 包裹符号（不要写 ```json）或其他多余的解释文字！\n"
                 f"内容：\n{final_markdown[:4000]}"
             )
-            anki_csv, usage = await call_llm_api(provider, model, anki_prompt, "你是一个擅长提炼核心知识的卡片生成系统。严格输出 JSON。", keys, api_base_url)
-            total_tokens += usage.get("total_tokens", 0) if "total_tokens" in usage else (usage.get("totalTokens", 0) if "totalTokens" in usage else 0)
-            anki_csv = anki_csv.replace("```json", "").replace("```", "").strip()
-            
-            mermaid_code = ""
-            
-            # Save Article to Database
-            new_article = Article(
-                task_id=task_id,
-                title=title,
-                author=author,
-                duration=duration,
-                publish_date=pub_date,
-                thumbnail_url=thumbnail_url if thumbnail_url else "",
-                video_url=video_url,
-                html_content=final_html,
-                markdown_content=final_markdown,
-                anki_csv=anki_csv,
-                mermaid_code=mermaid_code
-            )
-            db.add(new_article)
+            if mode == "deep":
+                card_task = asyncio.create_task(call_llm_api(
+                    provider, model, anki_prompt, "你是一个擅长提炼核心知识的卡片生成系统。严格输出 JSON。", keys, api_base_url
+                ))
+            if visual_task:
+                try:
+                    frames = await asyncio.wait_for(visual_task, timeout=45.0)
+                    if frames:
+                        figures = []
+                        for frame in frames:
+                            if frame["relative_path"] in article_html:
+                                continue
+                            caption = escape(frame.get("caption", "视频关键帧"))
+                            figures.append(f'<figure><img src="{escape(frame["relative_path"], quote=True)}" alt="{caption}"><figcaption>{caption}</figcaption></figure>')
+                        enriched = article_html + ('<h2>视频关键帧</h2>' + "\n".join(figures) if figures else "")
+                        new_article.html_content = render_document(
+                            title=title, platform=platform, author=author, publish_date=pub_date,
+                            thumbnail_url=thumbnail_url or "", duration_formatted=duration_formatted,
+                            video_url=video_url, style=style, article_content=enriched
+                        )
+                        new_article.markdown_content = md_header + toc_markdown + html_to_markdown(enriched)
+                except Exception as exc:
+                    logger.warning("Visual enrichment unavailable: %s", type(exc).__name__)
+                    update_task_progress(task_id, "enriching", 94.0, "正文可读，截图增强已跳过",
+                                         f"截图增强未完成（{type(exc).__name__}），保留正文。", db)
+            if card_task:
+                try:
+                    cards, usage = await card_task
+                    total_tokens += usage.get("total_tokens", usage.get("totalTokens", 0)) or 0
+                    parsed = json.loads(cards.replace("```json", "").replace("```", "").strip())
+                    if not isinstance(parsed, list):
+                        raise ValueError("卡片必须是数组")
+                    new_article.anki_csv = json.dumps(parsed, ensure_ascii=False)
+                except Exception as exc:
+                    update_task_progress(task_id, "enriching", 96.0, "正文可读，卡片增强已跳过",
+                                         f"卡片生成失败（{type(exc).__name__}），保留正文。", db)
+            record_timing("排版、保存与附属内容补全")
             db.commit()
             
             # Complete Task
-            update_task_progress(task_id, "completed", 100.0, "完成生成！", f"任务全部成功完成！总计消耗 Tokens: {total_tokens}。文章已归档到历史数据库。", db)
+            update_task_progress(task_id, "completed", 100.0, "完成生成！", f"任务全部成功完成！总计消耗 Tokens: {total_tokens}。总耗时: {perf_counter() - started_at:.2f}s。文章已归档到历史数据库。", db)
             
         except Exception as e:
+            db.rollback()
             error_msg = f"发生未捕获异常: {str(e)}\n{traceback.format_exc()}"
             logger.error(f"Task {task_id} failed. {error_msg}")
             update_task_progress(task_id, "failed", 100.0, "任务失败", f"错误: {str(e)}", db)
     finally:
+        pending = [job for job in (visual_task, card_task) if job is not None]
+        for job in pending:
+            if not job.done():
+                job.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
         if db_created:
             db.close()

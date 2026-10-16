@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test": "tsx --tsconfig tsconfig.app.json --test tests/*.test.ts tests/*.test.tsx",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
@@ -13,7 +14,9 @@
     "lucide-react": "^1.24.0",
     "mermaid": "^11.16.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.2",
@@ -25,6 +28,7 @@
     "oxlint": "^1.71.0",
     "postcss": "^8.5.18",
     "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   }

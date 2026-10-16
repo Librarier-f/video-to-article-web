@@ -1,6 +1,8 @@
 import os
 import subprocess
 import logging
+from time import monotonic
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 from PIL import Image, ImageStat
 
@@ -42,7 +44,7 @@ def capture_single_frame(
     if headers:
         header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()])
 
-    cmd = ["ffmpeg", "-y"]
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
     if header_str:
         cmd.extend(["-headers", header_str])
         
@@ -55,7 +57,7 @@ def capture_single_frame(
     ])
 
     try:
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
         return res.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 0
     except Exception as e:
         logger.error(f"FFmpeg stream capture failed at {timestamp_sec}s: {e}")
@@ -73,26 +75,31 @@ def capture_keyframes_from_stream(
     """
     target_dir = os.path.join(base_dir, task_id)
     os.makedirs(target_dir, exist_ok=True)
-    captured = []
-
-    for ts in timestamps:
+    deadline = monotonic() + 30.0
+    def capture(ts):
+        if monotonic() >= deadline:
+            return None
         filename = f"frame_{ts}s.jpg"
         out_path = os.path.join(target_dir, filename)
         
         # Primary attempt
         success = capture_single_frame(stream_url, ts, out_path, headers)
-        if success and not is_valid_frame(out_path):
+        if success and not is_valid_frame(out_path) and monotonic() < deadline:
             # Try jitter +2s
             capture_single_frame(stream_url, ts + 2, out_path, headers)
-            if not is_valid_frame(out_path):
+            if not is_valid_frame(out_path) and monotonic() < deadline:
                 # Try jitter -2s
                 capture_single_frame(stream_url, max(0, ts - 2), out_path, headers)
 
         if os.path.exists(out_path) and is_valid_frame(out_path):
-            captured.append({
+            return {
                 "timestamp_sec": ts,
                 "relative_path": f"/api/snapshots/{task_id}/{filename}",
                 "local_path": out_path
-            })
-            
-    return captured
+            }
+        return None
+
+    # Two independent range requests overlap network waits without spawning a
+    # process per timestamp all at once. executor.map preserves input order.
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        return [frame for frame in executor.map(capture, dict.fromkeys(timestamps)) if frame]

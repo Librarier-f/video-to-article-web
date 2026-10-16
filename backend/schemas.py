@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from services.llm_service import build_chat_completions_url
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 class TaskCreate(BaseModel):
     video_url: str = Field(..., description="Bilibili or YouTube video URL")
@@ -12,8 +13,24 @@ class TaskCreate(BaseModel):
     model: str = Field(default="gemini-2.5-flash", description="Model name to write the article")
     api_base_url: Optional[str] = Field(default=None, description="Custom API base URL")
     custom_api_key: Optional[str] = Field(default=None, description="Custom provider API Key")
+    generation_mode: Literal["fast", "deep"] = "fast"
+    include_visuals: bool = True
+
+    @model_validator(mode="after")
+    def validate_custom_configuration(self):
+        if self.provider.lower() == "custom":
+            build_chat_completions_url(self.api_base_url or "")
+            self.api_base_url = self.api_base_url.strip().rstrip("/")
+            self.model = self.model.strip()
+            if not self.model:
+                raise ValueError("请填写自定义模型名称。")
+            if self.custom_api_key is not None:
+                self.custom_api_key = self.custom_api_key.strip()
+        return self
 
 class TaskResponse(BaseModel):
+    article_id: Optional[int] = None
+    generation_mode: str = "fast"
     id: str
     video_url: str
     platform: str

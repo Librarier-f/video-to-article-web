@@ -1,10 +1,36 @@
 import unittest
 import os
 import tempfile
+import threading
+import time
+from unittest.mock import patch
 from PIL import Image
-from services.stream_capture import is_valid_frame
+from services.stream_capture import is_valid_frame, capture_keyframes_from_stream
 
 class TestStreamCapture(unittest.TestCase):
+    def test_capture_overlaps_two_frames_and_preserves_order(self):
+        lock = threading.Lock()
+        active = peak = 0
+
+        def capture(url, timestamp, output, headers):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            time.sleep(0.02)
+            with open(output, 'wb') as stream:
+                stream.write(b'frame')
+            with lock:
+                active -= 1
+            return True
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch('services.stream_capture.capture_single_frame', side_effect=capture), \
+             patch('services.stream_capture.is_valid_frame', return_value=True):
+            frames = capture_keyframes_from_stream('url', [10, 20, 30, 40], 'test', base_dir=directory)
+        self.assertEqual(peak, 2)
+        self.assertEqual([frame['timestamp_sec'] for frame in frames], [10, 20, 30, 40])
+
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
 

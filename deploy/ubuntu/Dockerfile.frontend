@@ -1,0 +1,6 @@
+FROM nginx:stable-alpine
+COPY frontend/dist /usr/share/nginx/html
+COPY deploy/ubuntu/frontend.conf /etc/nginx/nginx.conf
+USER nginx
+EXPOSE 8080
+ENTRYPOINT ["nginx", "-g", "daemon off;"]

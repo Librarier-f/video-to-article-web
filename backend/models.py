@@ -17,11 +17,17 @@ class Task(Base):
     current_step = Column(String(200), default="初始化任务")
     logs = Column(Text, default="[]")  # Store JSON array of logs
     api_base_url = Column(String(500), nullable=True)
+    generation_mode = Column(String(20), default="fast", nullable=False)
+    include_visuals = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship to article
     article = relationship("Article", back_populates="task", uselist=False, cascade="all, delete-orphan")
+
+    @property
+    def article_id(self):
+        return self.article.id if self.article else None
 
 
 class Article(Base):

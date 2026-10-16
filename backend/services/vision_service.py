@@ -2,6 +2,7 @@ import base64
 import logging
 import httpx
 from typing import Optional
+from services.llm_service import request_client, build_chat_completions_url
 
 logger = logging.getLogger("video-to-article.vision")
 
@@ -55,8 +56,8 @@ async def analyze_frame_caption(
                     ]
                 }]
             }
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                res = await client.post(url, json=payload)
+            async with request_client(httpx.Timeout(25.0)) as client:
+                res = await client.post(url, json=payload, timeout=25.0)
                 if res.status_code == 200:
                     data = res.json()
                     caption = data["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -65,12 +66,12 @@ async def analyze_frame_caption(
             logger.warning(f"Gemini VLM analysis failed: {e}")
 
     # 2. Try OpenAI-compatible VLM if OpenAI key exists
-    openai_key = keys.get("x-openai-key") or keys.get("x-custom-key")
+    # A custom text API does not imply gpt-4o-mini/vision support.
+    openai_key = keys.get("x-openai-key")
     if openai_key:
         try:
             b64_data = encode_image_base64(image_path)
-            base_url = (api_base_url or "https://api.openai.com/v1").rstrip("/")
-            url = f"{base_url}/chat/completions"
+            url = build_chat_completions_url("https://api.openai.com/v1")
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
@@ -94,8 +95,8 @@ async def analyze_frame_caption(
                 "Authorization": f"Bearer {openai_key}",
                 "Content-Type": "application/json"
             }
-            async with httpx.AsyncClient(timeout=25.0) as client:
-                res = await client.post(url, json=payload, headers=headers)
+            async with request_client(httpx.Timeout(25.0)) as client:
+                res = await client.post(url, json=payload, headers=headers, timeout=25.0)
                 if res.status_code == 200:
                     data = res.json()
                     caption = data["choices"][0]["message"]["content"].strip()
@@ -104,4 +105,4 @@ async def analyze_frame_caption(
             logger.warning(f"OpenAI-compatible VLM analysis failed: {e}")
 
     # 3. Fallback default caption
-    return f"视频在 {time_str} 处的核心架构与关键流程演示"
+    return f"视频 {time_str} 处截图（未进行视觉内容识别）"

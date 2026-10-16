@@ -1,0 +1,16 @@
+.git
+.agents
+.superpowers
+.deploy
+**/.venv*
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/*.db
+**/*.db-*
+**/*.sqlite*
+**/snapshots
+**/.env
+**/.env.*
+**/*cookies*
+backend/tasks_output.txt

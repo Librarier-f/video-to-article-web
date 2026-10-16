@@ -1,5 +1,45 @@
 @import "tailwindcss";
 
+.markdown-preview {
+  max-width: 780px;
+  margin: 0 auto;
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.markdown-preview h1, .markdown-preview h2, .markdown-preview h3,
+.markdown-preview h4, .markdown-preview h5, .markdown-preview h6 {
+  color: var(--text-title);
+  font-weight: 650;
+  line-height: 1.45;
+  margin: 1.8em 0 0.7em;
+  scroll-margin-top: 24px;
+}
+.markdown-preview > :first-child { margin-top: 0; }
+.markdown-preview h1 { font-size: 2em; }
+.markdown-preview h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-bezel); padding-bottom: 0.4em; }
+.markdown-preview h3 { font-size: 1.2em; }
+.markdown-preview p, .markdown-preview ul, .markdown-preview ol,
+.markdown-preview blockquote, .markdown-preview pre { margin: 1em 0; }
+.markdown-preview ul { list-style: disc; padding-left: 1.6em; }
+.markdown-preview ol { list-style: decimal; padding-left: 1.6em; }
+.markdown-preview li + li { margin-top: 0.35em; }
+.markdown-preview li > p { margin: 0.35em 0; }
+.markdown-preview strong { color: var(--text-title); font-weight: 650; }
+.markdown-preview a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+.markdown-preview blockquote { border-left: 3px solid var(--accent-border); padding: 0.3em 1.2em; color: var(--text-muted); background: var(--bg-bezel); }
+.markdown-preview code { font-family: var(--font-mono); font-size: 0.88em; background: var(--bg-bezel); border: 1px solid var(--border-bezel); padding: 0.15em 0.35em; border-radius: 4px; }
+.markdown-preview pre { overflow-x: auto; padding: 1.2em; background: var(--bg-bezel); border: 1px solid var(--border-bezel); border-radius: 10px; }
+.markdown-preview pre code { padding: 0; border: 0; background: transparent; white-space: pre; }
+.markdown-preview .markdown-table-scroll { overflow-x: auto; margin: 1.2em 0; }
+.markdown-preview table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.markdown-preview th, .markdown-preview td { padding: 0.65em 0.9em; border: 1px solid var(--border-bezel); text-align: left; }
+.markdown-preview th { background: var(--bg-bezel); color: var(--text-title); font-weight: 600; }
+.markdown-preview img { max-width: 100%; height: auto; border-radius: 10px; margin: 1.5em auto; display: block; cursor: zoom-in; }
+.markdown-preview hr { border: 0; border-top: 1px solid var(--border-bezel); margin: 2em 0; }
+.markdown-preview input[type="checkbox"] { margin-right: 0.5em; }
+
 /* ---------------------------------------------------
    Vanguard Design System & Premium Reset
    --------------------------------------------------- */

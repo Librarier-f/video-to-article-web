@@ -1,3 +1,5 @@
+import { buildApiHeaders } from './apiHeaders';
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined 
   ? import.meta.env.VITE_API_BASE_URL 
   : "http://localhost:8000";
@@ -5,27 +7,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL !== undefined
  * Grabs the user's custom API keys from localStorage and compiles them into HTTP headers.
  */
 export function getApiHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  const geminiKey = localStorage.getItem("byok_gemini_key");
-  const claudeKey = localStorage.getItem("byok_claude_key");
-  const openaiKey = localStorage.getItem("byok_openai_key");
-  const deepseekKey = localStorage.getItem("byok_deepseek_key");
-  const kimiKey = localStorage.getItem("byok_kimi_key");
-  const imaClientId = localStorage.getItem("byok_ima_client_id");
-  const imaKey = localStorage.getItem("byok_ima_key");
-
-  if (geminiKey) headers["X-Gemini-Key"] = geminiKey.trim();
-  if (claudeKey) headers["X-Claude-Key"] = claudeKey.trim();
-  if (openaiKey) headers["X-OpenAI-Key"] = openaiKey.trim();
-  if (deepseekKey) headers["X-Deepseek-Key"] = deepseekKey.trim();
-  if (kimiKey) headers["X-Kimi-Key"] = kimiKey.trim();
-  if (imaClientId) headers["X-Ima-Client-Id"] = imaClientId.trim();
-  if (imaKey) headers["X-Ima-Key"] = imaKey.trim();
-
-  return headers;
+  return buildApiHeaders(localStorage);
 }
 
 export interface TaskCreatePayload {
@@ -38,9 +20,13 @@ export interface TaskCreatePayload {
   model: string;
   api_base_url?: string;
   custom_api_key?: string;
+  generation_mode?: "fast" | "deep";
+  include_visuals?: boolean;
 }
 
 export interface TaskResponseData {
+  article_id?: number | null;
+  generation_mode?: "fast" | "deep";
   id: string;
   video_url: string;
   platform: string;

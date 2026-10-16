@@ -3,27 +3,53 @@ import re
 import json
 import logging
 import tempfile
-import urllib.request
 import yt_dlp
+from yt_dlp.networking import Request
 from typing import Callable, Dict, Any, Optional, Tuple
 
 logger = logging.getLogger("video-to-article.converter")
 
-def create_temp_cookies(sessdata: str) -> Optional[str]:
+import uuid
+import time
+
+def create_temp_cookies(sessdata: str = None) -> Optional[str]:
     """
-    Creates a temporary Netscape-formatted cookies file using the Bilibili SESSDATA.
+    Creates a temporary Netscape-formatted cookies file for Bilibili.
+    Injects device tracking tokens (buvid3, b_nut, _uuid) to mitigate WAF 412 Precondition Failed,
+    and supports raw SESSDATA tokens or full cookie key-value strings.
     """
-    if not sessdata:
-        return None
+    b_nut = str(int(time.time()))
+    buvid3 = f"{uuid.uuid4().hex.upper()}infoc"
+    _uuid = str(uuid.uuid4())
     
-    content = (
-        "# Netscape HTTP Cookie File\n"
-        ".bilibili.com\tTRUE\t/\tTRUE\t1799320292\tSESSDATA\t{sessdata}\n"
-    ).format(sessdata=sessdata)
+    cookies = {
+        "buvid3": buvid3,
+        "b_nut": b_nut,
+        "_uuid": _uuid,
+    }
     
+    if sessdata and sessdata.strip():
+        text = sessdata.strip()
+        if text.lower().startswith("cookie:"):
+            text = text[7:].strip()
+        if "=" in text:
+            tokens = [t.strip() for t in text.replace("\n", ";").split(";") if t.strip()]
+            for token in tokens:
+                if "=" in token:
+                    k, v = token.split("=", 1)
+                    k, v = k.strip(), v.strip().strip('"\'')
+                    if k:
+                        cookies[k] = v
+        else:
+            cookies["SESSDATA"] = text.strip('"\'')
+
+    lines = ["# Netscape HTTP Cookie File"]
+    for k, v in cookies.items():
+        lines.append(f".bilibili.com\tTRUE\t/\tTRUE\t2147483647\t{k}\t{v}")
+
     fd, path = tempfile.mkstemp(suffix="_cookies.txt", prefix="bili_")
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
-        f.write(content)
+        f.write("\n".join(lines) + "\n")
     return path
 
 def normalize_yt_cookies(raw_cookies: str) -> Tuple[str, bool]:
@@ -181,17 +207,20 @@ def extract_video_details(
         else:
             log_func("【下载】已加载 Bilibili SESSDATA 鉴权凭据...")
 
-    temp_dir = tempfile.gettempdir()
-    
     # We configure modern yt-dlp settings
     ydl_opts = {
         'skip_download': True,
+        # These enable discovery in InfoExtractor.extract_subtitles and
+        # extract_automatic_captions. download=False below still prevents
+        # YoutubeDL from writing subtitle/video files during extraction.
         'writesubtitles': True,
         'writeautomaticsub': True,
-        # Try downloading simplified Chinese, Chinese, automatic Chinese, and English
+        # Preferred languages for choosing a discovered track below.
         'subtitleslangs': ['zh-Hans', 'zh', 'ai-zh', 'en', 'en-orig'],
-        # Template output for downloaded subtitle files
-        'outtmpl': os.path.join(temp_dir, 'ytdlp_%(id)s.%(ext)s'),
+        'noplaylist': True,
+        'socket_timeout': 20,
+        'retries': 1,
+        'extractor_retries': 1,
         'quiet': True,
         'no_warnings': True,
         'js_runtimes': {'node': {}},
@@ -203,6 +232,9 @@ def extract_video_details(
         },
     }
 
+    if "bilibili.com" in lower_url or "b23.tv" in lower_url:
+        ydl_opts['http_headers']['Referer'] = 'https://www.bilibili.com/'
+
     if cookie_path:
         ydl_opts['cookiefile'] = cookie_path
         
@@ -210,14 +242,15 @@ def extract_video_details(
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             if log_func:
                 log_func("【下载】正在获取视频基础元数据...")
-            info = ydl.extract_info(url, download=True)
+            info = ydl.extract_info(url, download=False)
+            if not info or info.get("_type") == "playlist":
+                raise ValueError("请提供单个视频的有效链接。")
             
             title = info.get('title', '未知视频标题')
             author = info.get('uploader', '未知作者')
-            duration = info.get('duration', 0.0)
-            upload_date = info.get('upload_date', '')
+            duration = info.get('duration') or 0.0
+            upload_date = info.get('upload_date') or ''
             thumbnail_url = info.get('thumbnail', '')
-            video_id = info.get('id', '')
             
             # Format date: 20260129 -> 2026-01-29
             if len(upload_date) == 8:
@@ -226,82 +259,72 @@ def extract_video_details(
             if log_func:
                 log_func(f"【下载】获取成功: 《{title}》 | 作者: {author} | 时长: {int(duration // 60)}分{int(duration % 60)}秒")
                 
-            # Scan for downloaded subtitle files
-            sub_file = None
-            langs = ['zh-Hans', 'zh', 'ai-zh', 'en']
-            exts = ['srt', 'vtt']
-            
-            for lang in langs:
-                for ext in exts:
-                    expected_name = f"ytdlp_{video_id}.{lang}.{ext}"
-                    path = os.path.join(temp_dir, expected_name)
-                    if os.path.exists(path):
-                        sub_file = path
-                        break
-                if sub_file:
-                    break
-                    
-            # Fallback scan
-            if not sub_file:
-                for f in os.listdir(temp_dir):
-                    if f.startswith(f"ytdlp_{video_id}") and f.endswith(('.srt', '.vtt')):
-                        sub_file = os.path.join(temp_dir, f)
-                        break
-
-            # Second fallback: If yt-dlp did not write subtitle file to disk, try downloading directly from track URLs
-            if not sub_file:
-                subs = info.get('subtitles') or {}
-                auto_subs = info.get('automatic_captions') or {}
-                for target_lang in ['zh-Hans', 'zh', 'ai-zh', 'en', 'en-orig']:
-                    tracks = subs.get(target_lang) or auto_subs.get(target_lang) or []
-                    if tracks:
-                        best_track = next((t for t in tracks if t.get('ext') in ('vtt', 'srt')), tracks[0])
-                        sub_url = best_track.get('url')
-                        if sub_url:
-                            try:
-                                sub_ext = best_track.get('ext', 'vtt')
-                                fallback_path = os.path.join(temp_dir, f"ytdlp_{video_id}.{target_lang}.{sub_ext}")
-                                req = urllib.request.Request(sub_url, headers=ydl_opts.get('http_headers', {}))
-                                with urllib.request.urlopen(req, timeout=15) as resp:
-                                    with open(fallback_path, 'wb') as out_f:
-                                        out_f.write(resp.read())
-                                if os.path.exists(fallback_path) and os.path.getsize(fallback_path) > 0:
-                                    sub_file = fallback_path
-                                    break
-                            except Exception as dl_err:
-                                logger.warning(f"Direct subtitle URL download failed for {target_lang}: {dl_err}")
-
-            if not sub_file:
-                raise Exception("未能找到该视频的任何字幕（CC字幕或AI生成字幕）。请确保原视频附带字幕。")
-            
-            is_vtt = sub_file.endswith('.vtt')
+            # Fetch exactly one usable track using yt-dlp's authenticated
+            # session. No shared subtitle files or scanning the temp directory.
+            subs = info.get('subtitles') or {}
+            auto_subs = info.get('automatic_captions') or {}
+            languages = list(dict.fromkeys(['zh-Hans', 'zh', 'ai-zh', 'en', 'en-orig'] + list(subs) + list(auto_subs)))
+            available_languages = [lang for lang in languages if lang != 'danmaku' and (subs.get(lang) or auto_subs.get(lang))]
             if log_func:
-                log_func(f"【下载】成功提取字幕文件: {os.path.basename(sub_file)}")
+                log_func(f"【字幕】已发现轨道：{', '.join(available_languages) if available_languages else '未返回字幕轨道'}")
+            cleaned_subtitle = ""
+            attempts = 0
+            failures = []
+            for lang in languages:
+                tracks = (subs.get(lang) or []) + (auto_subs.get(lang) or [])
+                supported = [track for track in tracks if (track.get('url') or track.get('data')) and track.get('ext') in ('vtt', 'srt', 'json3', 'json')]
+                ranked = sorted(supported, key=lambda track: (not bool(track.get('data')), ['vtt', 'srt', 'json3', 'json'].index(track['ext'])))
+                if not ranked:
+                    continue
+                for track in ranked:
+                    attempts += 1
+                    try:
+                        raw = track.get('data')
+                        if not raw:
+                            headers = {**ydl_opts['http_headers'], **(info.get('http_headers') or {}), **(track.get('http_headers') or {})}
+                            request = Request(track['url'], headers=headers)
+                            with ydl.urlopen(request) as response:
+                                raw = response.read()
+                        if isinstance(raw, bytes):
+                            raw = raw.decode('utf-8-sig', errors='replace')
+                        ext = track['ext']
+                        if ext == 'json3':
+                            data = json.loads(raw)
+                            raw = '\n'.join(''.join(part.get('utf8', '') for part in event.get('segs', [])) for event in data.get('events', []))
+                        elif ext == 'json':
+                            data = json.loads(raw)
+                            raw = '\n'.join(item.get('content', '') for item in data.get('body', []))
+                        cleaned_subtitle = clean_subtitle(raw, is_vtt=ext == 'vtt')
+                        if cleaned_subtitle:
+                            if log_func:
+                                log_func(f"【下载】已读取 {lang} 字幕（{ext}），跳过其余语言轨道。")
+                            break
+                        failures.append(f"{lang}: 字幕内容为空")
+                    except Exception as exc:
+                        status_code = getattr(exc, 'status', None) or getattr(exc, 'code', None)
+                        reason = type(exc).__name__ + (f" HTTP {status_code}" if isinstance(status_code, int) else "")
+                        failures.append(f"{lang}: {reason}")
+                        logger.warning("Subtitle track failed (%s, %s)", lang, reason)
+                        if log_func:
+                            log_func(f"【字幕】{lang} 读取失败：{reason}，尝试其他可用轨道。")
+                    if attempts >= 3:
+                        break
+                if cleaned_subtitle or attempts >= 3:
+                    break
+            if not cleaned_subtitle:
+                if available_languages:
+                    detail = '；'.join(failures) or '轨道格式不受支持或未返回字幕内容'
+                    raise ValueError(f"已发现字幕（{', '.join(available_languages)}），但读取失败：{detail}。请检查网络与登录凭据。")
+                hint = "请检查 B 站 SESSDATA 是否有效，登录后可见的 AI 字幕需要有效登录态。" if 'bilibili.com' in lower_url or 'b23.tv' in lower_url else "请检查视频字幕权限和登录 Cookies。"
+                raise ValueError(f"视频平台未返回字幕轨道。{hint}")
                 
-            with open(sub_file, 'r', encoding='utf-8', errors='ignore') as sf:
-                raw_subtitle = sf.read()
-                
-            cleaned_subtitle = clean_subtitle(raw_subtitle, is_vtt)
-            
-            # Cleanup downloaded subtitle file
-            try:
-                os.remove(sub_file)
-            except:
-                pass
-                
-            if cookie_path and os.path.exists(cookie_path):
-                try:
-                    os.remove(cookie_path)
-                except:
-                    pass
-                    
             # Extract stream url and headers for ffmpeg range-request keyframing
             stream_url = info.get('url', '')
-            if not stream_url and info.get('formats'):
-                video_formats = [f for f in info.get('formats', []) if f.get('vcodec') != 'none' and f.get('url')]
-                if video_formats:
-                    # Pick a lightweight video format URL
-                    stream_url = video_formats[0].get('url', '')
+            video_formats = [f for f in info.get('formats', [])
+                             if f.get('vcodec') not in (None, 'none') and f.get('url')
+                             and f.get('protocol') in ('http', 'https') and f.get('height')]
+            if video_formats:
+                stream_url = min(video_formats, key=lambda f: (f['height'] > 720, abs(f['height'] - 480))).get('url', stream_url)
 
             http_headers = info.get('http_headers', {})
 
@@ -318,11 +341,6 @@ def extract_video_details(
             }
             
     except Exception as e:
-        if cookie_path and os.path.exists(cookie_path):
-            try:
-                os.remove(cookie_path)
-            except:
-                pass
         err_msg = str(e)
         if "Sign in to confirm you’re not a bot" in err_msg or "Sign in to confirm you're not a bot" in err_msg:
             friendly_err = (
@@ -334,5 +352,19 @@ def extract_video_details(
                 "4. 若已上传且包含登录态仍被拦截，说明当前代理节点/IP 已被 YouTube 临时拉黑，建议切换科学上网节点或断开后重连重试。"
             )
             raise Exception(friendly_err)
+        if "412" in err_msg or "Precondition Failed" in err_msg:
+            friendly_err = (
+                "Bilibili 触发了机房安全风控拦截 (HTTP Error 412: Precondition Failed)。\n\n"
+                "【原因与解决方案】：\n"
+                "当前服务部署在云服务器机房 IP，B 站 WAF 限制了未登录机房 IP 的直接请求。\n"
+                "1. 请在页面下方的「Bilibili SESSDATA Cookie」输入框中填入你登录 B 站后的 SESSDATA（或完整 Cookie 字符串）；\n"
+                "2. 获取方式：浏览器登录 B 站 ➔ 按 F12 打开开发者工具 ➔ Application/应用 ➔ Cookies ➔ bilibili.com ➔ 复制 SESSDATA 列的值；\n"
+                "3. 填入后重新点击「立即转换」即可顺畅解析并提取字幕！"
+            )
+            raise Exception(friendly_err)
         raise Exception(f"视频解析失败: {err_msg}")
+    finally:
+        # YoutubeDL may save its cookie jar on exit, so clean up afterwards.
+        if cookie_path and os.path.exists(cookie_path):
+            os.remove(cookie_path)
 

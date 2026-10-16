@@ -1,0 +1,23 @@
+# Future public entry: enable only after ICP/access review and certificate issuance.
+server {
+    listen 443 ssl;
+    server_name v2a.fengjiajun.site;
+    ssl_certificate /etc/letsencrypt/live/v2a.fengjiajun.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/v2a.fengjiajun.site/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 1m;
+    location / {
+        proxy_pass http://127.0.0.1:8890;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}

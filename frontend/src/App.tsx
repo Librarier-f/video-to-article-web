@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { mergePolledTasks } from "./utils/taskPolling";
 import { 
   Menu, 
   Settings as SettingsIcon, 
@@ -39,6 +40,10 @@ export default function App() {
   // Active task monitoring (supports multiple tasks)
   const [activeTasks, setActiveTasks] = useState<TaskResponseData[]>([]);
   const [selectedActiveTaskId, setSelectedActiveTaskId] = useState<string | null>(null);
+  const selectionRef = useRef({ taskId: selectedActiveTaskId, articleId: selectedArticleId });
+  useEffect(() => {
+    selectionRef.current = { taskId: selectedActiveTaskId, articleId: selectedArticleId };
+  }, [selectedActiveTaskId, selectedArticleId]);
   
   // UI control state
   const [showSettings, setShowSettings] = useState(false);
@@ -74,8 +79,12 @@ export default function App() {
   // Handle multiple active tasks polling
   useEffect(() => {
     if (activeTasks.length === 0) return;
-
+    let inFlight = false;
+    let disposed = false;
+    const polledIds = new Set(activeTasks.map((task) => task.id));
     const interval = setInterval(async () => {
+      if (inFlight) return;
+      inFlight = true;
       try {
         let historyNeedsUpdate = false;
         
@@ -83,14 +92,28 @@ export default function App() {
           activeTasks.map(async (task) => {
             try {
               const status = await fetchTaskStatus(task.id);
+              if (disposed) return task;
+              if (status.article_id && (status.article_id !== task.article_id || status.status === "completed" || selectionRef.current.taskId === task.id)) {
+                historyNeedsUpdate = true;
+                const selected = selectionRef.current;
+                if (selected.taskId === task.id || selected.articleId === status.article_id) {
+                  const article = await fetchArticleDetails(status.article_id);
+                  const latest = selectionRef.current;
+                  if (!disposed && (latest.taskId === task.id || latest.articleId === article.id)) {
+                    setSelectedArticle(article);
+                    setSelectedArticleId(article.id);
+                    setSelectedActiveTaskId(null);
+                  }
+                }
+              }
               if (status.status === "completed" || status.status === "failed") {
                 if (status.status === "completed") {
-                  if (task.id === selectedActiveTaskId) {
+                  if (task.id === selectionRef.current.taskId) {
                     setSelectedActiveTaskId(null); // Deselect if completed
                   }
                   historyNeedsUpdate = true;
                 } else if (status.status === "failed") {
-                  if (task.id === selectedActiveTaskId) {
+                  if (task.id === selectionRef.current.taskId) {
                     setSelectedActiveTaskId(null);
                   }
                   try {
@@ -111,26 +134,20 @@ export default function App() {
         );
         
         const newActiveTasks = updatedTasks.filter((t) => t !== null) as TaskResponseData[];
-        
-        setActiveTasks((prev) => {
-          // Only update if lengths match (simple check, assume we didn't add new tasks in the middle of a poll)
-          // Actually, just updating is fine, but to avoid race conditions with handleCreateTask, we should be careful.
-          // For simplicity, we just set the newly mapped array, but merge any new tasks that might have been added.
-          const prevIds = prev.map((p) => p.id);
-          const newIds = newActiveTasks.map((n) => n.id);
-          const addedSincePoll = prev.filter((p) => !prevIds.includes(p.id) && !newIds.includes(p.id));
-          return [...newActiveTasks, ...addedSincePoll];
-        });
+        if (disposed) return;
+        setActiveTasks((prev) => mergePolledTasks(prev, polledIds, newActiveTasks));
 
         if (historyNeedsUpdate) {
           loadHistory();
         }
       } catch (err) {
         console.error("Global polling error:", err);
+      } finally {
+        inFlight = false;
       }
-    }, 2000);
+    }, 1000);
 
-    return () => clearInterval(interval);
+    return () => { disposed = true; clearInterval(interval); };
   }, [activeTasks]);
 
   const toggleTheme = () => {
@@ -204,13 +221,26 @@ export default function App() {
     setShowMobileHistory(false);
   };
 
-  const handleSelectActiveTask = (id: string) => {
+  const handleSelectActiveTask = async (id: string) => {
+    const task = activeTasks.find((entry) => entry.id === id);
     setSelectedActiveTaskId(id);
     setSelectedArticleId(null);
     setSelectedArticle(null);
     setShowThemeManual(false);
     setShowMobileHistory(false);
     setError(null);
+    if (task?.article_id) {
+      try {
+        const article = await fetchArticleDetails(task.article_id);
+        if (selectionRef.current.taskId === id) {
+          setSelectedArticle(article);
+          setSelectedArticleId(article.id);
+          setSelectedActiveTaskId(null);
+        }
+      } catch (err) {
+        console.error("Failed to open published body", err);
+      }
+    }
   };
 
   const handleSelectThemeManual = () => {
@@ -365,9 +395,14 @@ export default function App() {
 
           {selectedArticle && !selectedActiveTaskId && !showThemeManual && (
             <div className="flex-1 w-full flex flex-col overflow-hidden animate-fade-up min-h-0">
+              {activeTasks.some((task) => task.article_id === selectedArticle.id) && (
+                <p role="status" className="text-xs text-accent-text bg-accent-light border border-accent-border rounded-xl px-4 py-2 mb-3">
+                  正文已就绪，可先阅读；截图或知识卡片正在补充，完成后自动更新。
+                </p>
+              )}
               <ArticlePreview 
                 article={selectedArticle} 
-                onRefresh={loadHistory}
+                onRefresh={async () => { await loadHistory(); setSelectedArticle(await fetchArticleDetails(selectedArticle.id)); }}
               />
             </div>
           )}
@@ -393,9 +428,8 @@ export default function App() {
             />
 
             {/* Direct Setup Wizard Prompt */}
-            {!localStorage.getItem("byok_gemini_key") && 
-             !localStorage.getItem("byok_claude_key") && 
-             !localStorage.getItem("byok_openai_key") && (
+            {!["gemini", "claude", "openai", "deepseek", "kimi", "minimax", "glm", "siliconflow", "custom"]
+              .some((provider) => localStorage.getItem(`byok_${provider}_key`)?.trim()) && (
               <div className="bg-accent-light border border-accent-border rounded-2xl p-5 text-xs text-text-body flex flex-col gap-2.5 shadow-sm">
                 <span className="font-semibold text-accent-text flex items-center gap-1.5">💡 快速开始前置步骤：</span>
                 <p className="text-text-muted leading-relaxed">

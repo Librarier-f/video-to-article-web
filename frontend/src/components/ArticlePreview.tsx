@@ -1,7 +1,9 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Download, ExternalLink, RefreshCw, FileText, FileCode, Copy, Check, Bot, Lightbulb, ChevronDown, X } from "lucide-react";
-import { getDownloadUrl, getMarkdownDownloadUrl, exportToIma } from "../utils/api";
+import { API_BASE_URL, getDownloadUrl, getMarkdownDownloadUrl, exportToIma } from "../utils/api";
 import type { ArticleDetailResponseData } from "../utils/api";
+import MarkdownPreview from "./MarkdownPreview";
+import { resolveSnapshotUrls } from "../utils/htmlDocument";
 
 interface ArticlePreviewProps {
   article: ArticleDetailResponseData;
@@ -9,56 +11,12 @@ interface ArticlePreviewProps {
 }
 
 export default function ArticlePreview({ article, onRefresh }: ArticlePreviewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [activeTab, setActiveTab] = useState<"html" | "markdown" | "anki">("html");
   const [copied, setCopied] = useState(false);
+  const [markdownMode, setMarkdownMode] = useState<"preview" | "source">("preview");
   const [isExportingIma, setIsExportingIma] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
-
-  // Listen for clicks on images inside the article iframe to trigger Lightbox
-  useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    const attachListener = () => {
-      try {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (!doc) return;
-
-        const handleClick = (e: MouseEvent) => {
-          const target = e.target as HTMLElement | null;
-          if (!target) return;
-
-          const img = target.closest("img") as HTMLImageElement | null;
-          if (img && img.src) {
-            e.preventDefault();
-            const figure = img.closest("figure");
-            const figcaption = figure?.querySelector("figcaption");
-            const captionText = figcaption?.textContent?.trim() || img.alt || "视频关键帧截图";
-            setLightboxImage({
-              src: img.src,
-              alt: captionText,
-            });
-          }
-        };
-
-        doc.addEventListener("click", handleClick);
-        return () => {
-          doc.removeEventListener("click", handleClick);
-        };
-      } catch (err) {
-        console.warn("Could not attach lightbox click listener to iframe:", err);
-      }
-    };
-
-    iframe.addEventListener("load", attachListener);
-    const cleanup = attachListener();
-
-    return () => {
-      iframe.removeEventListener("load", attachListener);
-      if (cleanup) cleanup();
-    };
-  }, [article.html_content, activeTab]);
+  const readerHtml = useMemo(() => resolveSnapshotUrls(article.html_content, API_BASE_URL), [article.html_content]);
 
   // Handle ESC key to close lightbox
   useEffect(() => {
@@ -105,7 +63,8 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
   const handleOpenNewTab = () => {
     const newTab = window.open();
     if (newTab) {
-      newTab.document.write(article.html_content);
+      newTab.opener = null;
+      newTab.document.write(readerHtml);
       newTab.document.close();
     }
   };
@@ -181,7 +140,7 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
               }`}
             >
               <FileCode size={11} strokeWidth={1.5} />
-              <span>Markdown</span>
+              <span>MD 预览</span>
             </button>
             <button
               onClick={() => setActiveTab("anki")}
@@ -253,10 +212,10 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
         <div className="flex-1 bg-bg-bezel/30 relative p-2 overflow-hidden flex flex-col">
           {activeTab === "html" ? (
             <iframe
-              ref={iframeRef}
-              srcDoc={article.html_content}
+              srcDoc={readerHtml}
               title={article.title}
-              sandbox="allow-scripts allow-popups"
+              sandbox="allow-scripts allow-popups allow-modals"
+              allow="clipboard-write"
               className="w-full h-full rounded-xl border border-border-card bg-bg-card"
             />
           ) : activeTab === "anki" ? (
@@ -290,10 +249,16 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
             </div>
           ) : (
             <div className="relative flex-1 rounded-xl border border-border-card bg-bg-bezel flex flex-col overflow-hidden shadow-inner">
-              {/* Floating Copy Button inside viewport */}
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border-card bg-bg-card">
+                <div className="flex gap-1" role="group" aria-label="Markdown 显示模式">
+                  <button type="button" onClick={() => setMarkdownMode("preview")} aria-pressed={markdownMode === "preview"}
+                    className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer ${markdownMode === "preview" ? "bg-accent-light text-accent-text" : "text-text-muted"}`}>预览</button>
+                  <button type="button" onClick={() => setMarkdownMode("source")} aria-pressed={markdownMode === "source"}
+                    className={`px-3 py-1.5 rounded-lg text-xs cursor-pointer ${markdownMode === "source" ? "bg-accent-light text-accent-text" : "text-text-muted"}`}>源码</button>
+                </div>
               <button
                 onClick={handleCopyMarkdown}
-                className="absolute right-4 top-4 z-20 px-3.5 py-2 text-[10px] font-semibold bg-bg-card/90 border border-border-card hover:bg-bg-bezel hover:border-border-bezel active:scale-[0.95] text-text-body rounded-full flex items-center gap-1.5 transition-spring focus:outline-none shadow-md backdrop-blur-sm cursor-pointer"
+                className="px-3 py-1.5 text-[11px] font-semibold border border-border-card text-text-body rounded-lg flex items-center gap-1.5 hover:bg-bg-bezel cursor-pointer"
               >
                 {copied ? (
                   <>
@@ -303,16 +268,21 @@ export default function ArticlePreview({ article, onRefresh }: ArticlePreviewPro
                 ) : (
                   <>
                     <Copy size={11} strokeWidth={1.5} className="text-accent-text" />
-                    <span>复制代码</span>
+                    <span>复制 Markdown</span>
                   </>
                 )}
               </button>
-              
-              <textarea
+              </div>
+              {markdownMode === "preview" ? (
+                <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-8 bg-bg-card custom-scrollbar">
+                  <MarkdownPreview content={article.markdown_content || ""} assetBaseUrl={API_BASE_URL} onImageClick={setLightboxImage} />
+                </div>
+              ) : <textarea
+                aria-label="Markdown 源码"
                 readOnly
                 value={article.markdown_content || "# 暂无 Markdown 内容\n内容转换中，或系统尝试提取旧数据，请稍候。"}
-                className="w-full h-full p-6 pr-24 bg-transparent text-text-body font-mono text-[11px] leading-relaxed border-none outline-none resize-none overflow-y-auto selection:bg-accent-text/20"
-              />
+                className="w-full flex-1 min-h-0 p-6 bg-transparent text-text-body font-mono text-xs leading-relaxed border-none outline-none resize-none overflow-y-auto selection:bg-accent-text/20"
+              />}
             </div>
           )}
         </div>

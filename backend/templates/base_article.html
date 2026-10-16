@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>{{ title | e }}</title>
+  <style>{% include '_reader.css' %}{% include '_themes.css' %}</style>
+</head>
+<body data-theme="{{ theme_key | default(style) }}" data-default-scheme="{{ default_scheme }}">
+  <a class="skip-link" href="#article-body">跳至正文</a>
+  <div class="reading-progress" aria-hidden="true"></div>
+  <header class="reader-bar">
+    <a class="reader-brand" href="#document-top">视频笔记 <span>{{ theme_label }}</span></a>
+    <div class="reader-tools" role="group" aria-label="阅读设置">
+      <button type="button" data-action="font-decrease" aria-label="缩小字号">A−</button>
+      <button type="button" data-action="font-increase" aria-label="放大字号">A+</button>
+      <button type="button" data-action="appearance">{{ '浅色' if default_scheme == 'dark' else '深色' }}</button>
+      <button type="button" data-action="focus" aria-pressed="false">专注阅读</button>
+      <button type="button" data-action="print">打印</button>
+    </div>
+  </header>
+  <div class="document-shell" id="document-top">
+    <header class="article-header {{ 'has-cover' if thumbnail_url else '' }}">
+      <div class="article-heading">
+        <p class="publication-label">视频长文</p>
+        <h1>{{ title | e }}</h1>
+        <div class="byline">
+          <span>{{ author | e }}</span>
+          {% if publish_date %}<time>{{ publish_date | e }}</time>{% endif %}
+          <span>约 {{ reading_minutes }} 分钟阅读</span>
+        </div>
+        {% if video_url %}<a class="source-link" href="{{ video_url | e }}" target="_blank" rel="noopener noreferrer">观看原视频 <span aria-hidden="true">↗</span></a>{% endif %}
+      </div>
+      {% if thumbnail_url %}
+      <figure class="source-cover">
+        <img src="{{ thumbnail_url | e }}" alt="原视频封面：{{ title | e }}" decoding="async">
+        <figcaption>{{ platform | e }}<span>视频时长 {{ duration_formatted | e }}</span></figcaption>
+      </figure>
+      {% endif %}
+    </header>
+    <div class="reading-layout">
+      <aside class="reading-rail" aria-label="阅读导航">
+        <details class="toc" open>
+          <summary>文章目录</summary>
+          <nav aria-label="文章章节">
+            {% for item in toc %}<a href="#{{ item.id }}" class="toc-level-{{ item.level }}">{{ item.title }}</a>{% else %}<a href="#article-body">本文正文</a>{% endfor %}
+          </nav>
+        </details>
+        {% if highlights %}
+        <div class="reading-notes">
+          <h2>文中摘句</h2>
+          {% for text in highlights %}<p>{{ text }}</p>{% endfor %}
+        </div>
+        {% endif %}
+        <p class="rail-source">{{ platform | e }}{% if duration_formatted %}<br>视频时长 {{ duration_formatted | e }}{% endif %}</p>
+      </aside>
+      <main class="reading-main">
+        <!-- Main Article Content -->
+        <article id="article-body" tabindex="-1">{{ article_content }}</article>
+        <hr class="divider">
+        <footer class="article-footer">
+          {% if video_url %}<a href="{{ video_url | e }}" target="_blank" rel="noopener noreferrer">回到原视频核对与延伸阅读 ↗</a>{% endif %}
+          <p>{{ footer_note | default('本文基于视频字幕自动整理生成。仅供学习研究使用。') }}</p>
+          <a class="back-top" href="#document-top">返回顶部 ↑</a>
+        </footer>
+      </main>
+    </div>
+  </div>
+  <dialog id="reader-lightbox" aria-label="查看文章原图">
+    <button type="button" data-action="close-image">关闭大图</button>
+    <img alt="">
+    <p></p>
+  </dialog>
+  <script>{% include '_reader.js' %}</script>
+</body>
+</html>

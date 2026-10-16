@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Settings, Link, Sparkles, UploadCloud, CheckCircle2, Trash2 } from "lucide-react";
 import type { TaskCreatePayload } from "../utils/api";
+import CustomApiFields from "./CustomApiFields";
+import { CUSTOM_API_SETTINGS_EVENT, loadCustomApiConfig, saveCustomApiConfig, validateCustomApiConfig } from "../utils/customApiConfig";
 
 interface VideoInputProps {
   onSubmit: (payload: TaskCreatePayload) => void;
@@ -24,11 +26,27 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
   // Form options
   const [style, setStyle] = useState("notion_dark");
   const [language, setLanguage] = useState("zh");
+  const [generationMode, setGenerationMode] = useState<"fast" | "deep">("fast");
+  const [includeVisuals, setIncludeVisuals] = useState(true);
   const [sessdata, setSessdata] = useState("");
-  const [provider, setProvider] = useState("deepseek");
+  const [provider, setProvider] = useState(() => loadCustomApiConfig().baseUrl ? "custom" : "deepseek");
   const [model, setModel] = useState("deepseek-v4-pro");
-  const [apiBaseUrl, setApiBaseUrl] = useState("");
-  const [customApiKey, setCustomApiKey] = useState("");
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => loadCustomApiConfig().baseUrl);
+  const [customApiKey, setCustomApiKey] = useState(() => loadCustomApiConfig().apiKey);
+  const [rememberCustomConfig, setRememberCustomConfig] = useState(true);
+  const [customError, setCustomError] = useState("");
+
+  useEffect(() => {
+    const reload = () => {
+      const config = loadCustomApiConfig();
+      setApiBaseUrl(config.baseUrl);
+      setCustomApiKey(config.apiKey);
+      setModel(config.model);
+      if (config.baseUrl) setProvider("custom");
+    };
+    window.addEventListener(CUSTOM_API_SETTINGS_EVENT, reload);
+    return () => window.removeEventListener(CUSTOM_API_SETTINGS_EVENT, reload);
+  }, []);
 
   // Load saved YouTube cookies from localStorage on mount
   useEffect(() => {
@@ -65,8 +83,9 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
     } else if (provider === "siliconflow") {
       setModel("THUDM/glm-5.2");
     } else if (provider === "custom") {
-      setModel("gpt-3.5-turbo"); // A generic default for custom OpenAI compatible
+      setModel(loadCustomApiConfig().model);
     }
+    setCustomError("");
   }, [provider]);
 
   const handleFileUpload = (file: File) => {
@@ -131,16 +150,25 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
     e.preventDefault();
     if (!url.trim()) return;
 
+    if (provider === "custom") {
+      const config = { baseUrl: apiBaseUrl, apiKey: customApiKey, model };
+      const error = validateCustomApiConfig(config);
+      if (error) { setCustomError(error); return; }
+      saveCustomApiConfig(rememberCustomConfig ? config : { baseUrl: "", apiKey: "", model: "" });
+    }
+
     onSubmit({
       video_url: url.trim(),
       style,
       language,
+      generation_mode: generationMode,
+      include_visuals: includeVisuals,
       sessdata: isBilibili && sessdata.trim() ? sessdata.trim() : undefined,
       youtube_cookies: isYoutube && youtubeCookies.trim() ? youtubeCookies.trim() : undefined,
       provider,
-      model,
-      api_base_url: apiBaseUrl.trim() ? apiBaseUrl.trim() : undefined,
-      custom_api_key: customApiKey.trim() ? customApiKey.trim() : undefined,
+      model: model.trim(),
+      api_base_url: provider === "custom" ? apiBaseUrl.trim() : undefined,
+      custom_api_key: provider === "custom" ? customApiKey.trim() : undefined,
     });
   };
 
@@ -225,10 +253,25 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
 
           {/* Advanced Options Panel */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5 border-t border-border-card">
+              <div className="md:col-span-2 space-y-3">
+                <label htmlFor="generation-mode" className="text-[10px] text-text-muted font-medium">生成模式</label>
+                <select id="generation-mode" value={generationMode} disabled={isLoading}
+                  onChange={(event) => setGenerationMode(event.target.value as "fast" | "deep")}
+                  className="w-full bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-title">
+                  <option value="fast">快速成文（推荐）</option>
+                  <option value="deep">深度精写（逐章扩写，耗时更长）</option>
+                </select>
+                <p className="text-[10px] text-text-muted">快速模式按信息量组织篇幅，并合并生成知识卡片；深度模式保留分章精写流程。</p>
+                <label className="flex gap-2 items-center text-[11px] text-text-muted cursor-pointer">
+                  <input type="checkbox" checked={includeVisuals} disabled={isLoading} onChange={(event) => setIncludeVisuals(event.target.checked)} />
+                  补充视频截图（快速模式先展示正文，截图随后补齐）
+                </label>
+              </div>
             {/* Model Provider */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-text-muted font-medium">选择 AI 提供商 (BYOK)</label>
+                <label htmlFor="model-provider" className="text-[10px] text-text-muted font-medium">选择 AI 提供商 (BYOK)</label>
                 <select
+                  id="model-provider"
                   value={provider}
                   onChange={(e) => setProvider(e.target.value)}
                   disabled={isLoading}
@@ -245,8 +288,9 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
 
               {/* Model Name */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-text-muted font-medium">具体基座模型 (可自定义输入)</label>
+                <label htmlFor="model-name" className="text-[10px] text-text-muted font-medium">具体基座模型 (可自定义输入)</label>
                 <input
+                  id="model-name"
                   type="text"
                   list="model-options"
                   value={model}
@@ -266,30 +310,17 @@ export default function VideoInput({ onSubmit, onOpenSettings, isLoading }: Vide
 
               {/* Custom API Base URL & API Key (Only shown when provider is custom) */}
               {provider === "custom" && (
-                <>
-                  <div className="flex flex-col gap-1.5 animate-fade-up">
-                    <label className="text-[10px] text-text-muted font-medium">自定义 API 代理地址 (可选)</label>
-                    <input
-                      type="url"
-                      value={apiBaseUrl}
-                      onChange={(e) => setApiBaseUrl(e.target.value)}
-                      disabled={isLoading}
-                      placeholder="例如: https://api.proxy.com/v1"
-                      className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5 animate-fade-up">
-                    <label className="text-[10px] text-text-muted font-medium">自定义 API 密钥</label>
-                    <input
-                      type="password"
-                      value={customApiKey}
-                      onChange={(e) => setCustomApiKey(e.target.value)}
-                      disabled={isLoading}
-                      placeholder="输入你的 API Key (此 Key 仅本次有效)"
-                      className="bg-bg-bezel border border-border-bezel rounded-xl px-3 py-2.5 text-xs text-text-body placeholder:text-text-muted/60 focus:outline-none focus:border-accent-border w-full transition-spring shadow-inner"
-                    />
-                  </div>
-                </>
+                <div className="md:col-span-2 space-y-3 rounded-xl border border-accent-border bg-accent-light p-4">
+                  <CustomApiFields idPrefix="input-custom" config={{ baseUrl: apiBaseUrl, apiKey: customApiKey, model }}
+                    onChange={(config) => { setApiBaseUrl(config.baseUrl); setCustomApiKey(config.apiKey); setCustomError(""); }}
+                    disabled={isLoading} showModel={false} />
+                  <label className="flex items-center gap-2 text-[11px] text-text-muted cursor-pointer">
+                    <input type="checkbox" checked={rememberCustomConfig} disabled={isLoading}
+                      onChange={(event) => setRememberCustomConfig(event.target.checked)} />
+                    在此浏览器记住自定义配置
+                  </label>
+                  {customError && <p role="alert" className="text-xs text-red-400">{customError}</p>}
+                </div>
               )}
 
               {/* Visual Theme */}

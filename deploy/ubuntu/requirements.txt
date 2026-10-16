@@ -1,0 +1,12 @@
+# Direct runtime versions matched to the local regression environment.
+# EJS is required alongside Node >=22 by current yt-dlp YouTube extraction.
+fastapi==0.139.0
+uvicorn==0.51.0
+SQLAlchemy==2.0.51
+pydantic==2.13.4
+httpx==0.28.1
+yt-dlp[default]==2026.8.19
+jinja2==3.1.6
+pillow==12.3.0
+markdownify==1.2.3
+beautifulsoup4==4.15.0

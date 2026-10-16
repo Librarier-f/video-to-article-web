@@ -3,17 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from contextlib import asynccontextmanager
 from typing import List, Dict, Optional
 import os
 import shutil
 import json
 import re
 
-from database import engine, Base, get_db
+from database import engine, Base, get_db, SessionLocal
 from models import Task, Article
 from schemas import TaskCreate, TaskResponse, ArticleResponse, ArticleDetailResponse
 from services.generator import generate_article_task
 from services.ima_service import export_article_to_ima, get_knowledge_bases
+from services.document_renderer import render_saved_document, inline_snapshot_images, extract_article_body, render_document, THEMES
+from services.task_runtime import task_admission, recover_interrupted_tasks
 from pydantic import BaseModel
 
 class ExportImaRequest(BaseModel):
@@ -43,11 +48,23 @@ try:
         task_columns = [row[1] for row in cursor.fetchall()]
         if "api_base_url" not in task_columns:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN api_base_url VARCHAR(500)"))
+        if "generation_mode" not in task_columns:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN generation_mode VARCHAR(20) NOT NULL DEFAULT 'deep'"))
+        if "include_visuals" not in task_columns:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN include_visuals INTEGER NOT NULL DEFAULT 1"))
 except Exception as e:
     import logging
     logging.getLogger("uvicorn").error(f"Database migration check failed: {e}")
 
-app = FastAPI(title="Video to Article BYOK Web API")
+@asynccontextmanager
+async def lifespan(application):
+    if os.environ.get('V2A_RECOVER_INTERRUPTED', 'false').lower() == 'true':
+        with SessionLocal() as db:
+            recover_interrupted_tasks(db)
+    yield
+
+
+app = FastAPI(title="Video to Article BYOK Web API", lifespan=lifespan)
 
 # Enable CORS for frontend integration
 app.add_middleware(
@@ -69,6 +86,26 @@ app.mount("/api/snapshots", StaticFiles(directory="snapshots"), name="snapshots"
 def read_root():
     return {"message": "Video to Article Web API is running."}
 
+
+@app.get('/api/health')
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text('SELECT 1'))
+    except SQLAlchemyError:
+        raise HTTPException(503, 'DATABASE_UNAVAILABLE') from None
+    return {'status': 'ok'}
+
+
+@app.get('/api/themes/{style}/preview', response_class=HTMLResponse)
+def preview_reading_theme(style: str):
+    if style not in THEMES:
+        raise HTTPException(status_code=404, detail='主题不存在')
+    from services.reading_sample import SAMPLE_BODY, SAMPLE_TITLE
+    return HTMLResponse(render_document(
+        article_content=SAMPLE_BODY, style=style, title=SAMPLE_TITLE, author='排版示例',
+        platform='阅读样例', publish_date='', duration_formatted='', video_url='', thumbnail_url=''
+    ))
+
 @app.post("/api/task", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(
     task_in: TaskCreate,
@@ -79,11 +116,30 @@ def create_task(
     x_openai_key: Optional[str] = Header(None, alias="X-OpenAI-Key"),
     x_deepseek_key: Optional[str] = Header(None, alias="X-Deepseek-Key"),
     x_kimi_key: Optional[str] = Header(None, alias="X-Kimi-Key"),
+    x_glm_key: Optional[str] = Header(None, alias="X-Glm-Key"),
+    x_minimax_key: Optional[str] = Header(None, alias="X-Minimax-Key"),
+    x_siliconflow_key: Optional[str] = Header(None, alias="X-Siliconflow-Key"),
     db: Session = Depends(get_db)
 ):
     """
     Creates a new article extraction task and triggers it in the background.
     """
+    keys = {
+        'x-gemini-key': x_gemini_key or '',
+        'x-claude-key': x_claude_key or '',
+        'x-openai-key': x_openai_key or '',
+        'x-deepseek-key': x_deepseek_key or '',
+        'x-kimi-key': x_kimi_key or '',
+        'x-glm-key': x_glm_key or '',
+        'x-minimax-key': x_minimax_key or '',
+        'x-siliconflow-key': x_siliconflow_key or '',
+        'x-custom-key': task_in.custom_api_key or '',
+    }
+    with task_admission(db):
+        return _create_task(task_in, background_tasks, keys, db)
+
+
+def _create_task(task_in, background_tasks, keys, db):
     # Parse platform from URL
     url = task_in.video_url.lower()
     if "bilibili.com" in url or "b23.tv" in url:
@@ -100,6 +156,8 @@ def create_task(
         style=task_in.style,
         language=task_in.language,
         api_base_url=task_in.api_base_url,
+        generation_mode=task_in.generation_mode,
+        include_visuals=int(task_in.include_visuals),
         status="pending",
         progress=0.0,
         current_step="已创建任务，排队中",
@@ -108,16 +166,6 @@ def create_task(
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
-
-    # Compile keys passed via headers
-    keys = {
-        "x-gemini-key": x_gemini_key or "",
-        "x-claude-key": x_claude_key or "",
-        "x-openai-key": x_openai_key or "",
-        "x-deepseek-key": x_deepseek_key or "",
-        "x-kimi-key": x_kimi_key or "",
-        "x-custom-key": task_in.custom_api_key or ""
-    }
 
     # Verify that at least one key is provided for the selected provider
     provider = task_in.provider.lower()
@@ -169,7 +217,9 @@ def get_article_details(article_id: int, db: Session = Depends(get_db)):
         article.markdown_content = regenerate_markdown(article)
         db.commit()
         
-    return article
+    response = ArticleDetailResponse.model_validate(article)
+    response.html_content = render_saved_document(article)
+    return response
 
 @app.delete("/api/history/{article_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_article(article_id: int, db: Session = Depends(get_db)):
@@ -200,7 +250,9 @@ def download_article(article_id: int, db: Session = Depends(get_db)):
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在")
         
-    filename = f"HTML-Notion深色-{article.title[:20].strip()}.html"
+    style = article.task.style if article.task else 'notion_dark'
+    theme_name = THEMES.get(style, THEMES['notion_dark'])[0]
+    filename = f"HTML-{theme_name}-{article.title[:20].strip()}.html"
     # Replace invalid filename characters
     filename = re.sub(r'[\\/*?:"<>|]', "", filename)
     
@@ -211,18 +263,12 @@ def download_article(article_id: int, db: Session = Depends(get_db)):
     headers = {
         "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
     }
-    return HTMLResponse(content=article.html_content, headers=headers)
+    return HTMLResponse(content=inline_snapshot_images(render_saved_document(article)), headers=headers)
 
 def regenerate_markdown(article: Article) -> str:
     from services.generator import html_to_markdown, format_duration
     html = article.html_content
-    # Find the article body block
-    body_match = re.search(r'<!-- 主体文章内容 -->\s*(.*?)\s*<hr class="divider">', html, re.DOTALL)
-    if body_match:
-        article_html = body_match.group(1)
-    else:
-        # Fallback if comment not found, extract h2 and p elements
-        article_html = html
+    article_html = extract_article_body(html)
         
     body_markdown = html_to_markdown(article_html)
     

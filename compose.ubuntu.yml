@@ -1,0 +1,72 @@
+name: v2a
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/ubuntu/Dockerfile.backend
+    image: v2a-backend:local
+    restart: unless-stopped
+    init: true
+    environment:
+      GENERATION_CONCURRENCY: "1"
+      MAX_ACTIVE_TASKS: "1"
+      V2A_RECOVER_INTERRUPTED: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      XDG_CACHE_HOME: /tmp/v2a-cache
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=96m,mode=1777
+    mem_limit: 640m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/ubuntu/Dockerfile.frontend
+    image: v2a-frontend:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8890:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    mem_limit: 96m
+    cpus: 0.25
+    pids_limit: 32
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  data:

@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Key, Eye, EyeOff, Save, Check, X, Link, RefreshCw, UploadCloud } from "lucide-react";
 import { fetchImaKnowledgeBases } from "../utils/api";
+import CustomApiFields from "./CustomApiFields";
+import { CUSTOM_API_SETTINGS_EVENT, loadCustomApiConfig, saveCustomApiConfig, validateCustomApiConfig } from "../utils/customApiConfig";
 
 interface SettingsPanelProps {
   onClose: () => void;
 }
 
 export default function SettingsPanel({ onClose }: SettingsPanelProps) {
+  const [customConfig, setCustomConfig] = useState(loadCustomApiConfig);
+  const [customError, setCustomError] = useState("");
   const [minimaxKey, setMinimaxKey] = useState("");
   const [glmKey, setGlmKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
@@ -38,8 +42,10 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   });
 
   const [saved, setSaved] = useState(false);
+  const [siliconflowKey, setSiliconflowKey] = useState('');
 
   useEffect(() => {
+    setSiliconflowKey(localStorage.getItem('byok_siliconflow_key') || '');
     setMinimaxKey(localStorage.getItem("byok_minimax_key") || "");
     setGlmKey(localStorage.getItem("byok_glm_key") || "");
     setOpenaiKey(localStorage.getItem("byok_openai_key") || "");
@@ -66,11 +72,19 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   };
 
   const handleSave = () => {
+    if (Object.values(customConfig).some((value) => value.trim())) {
+      const error = validateCustomApiConfig(customConfig);
+      if (error) { setCustomError(error); return; }
+    }
+    setCustomError("");
+    saveCustomApiConfig(customConfig);
+    window.dispatchEvent(new Event(CUSTOM_API_SETTINGS_EVENT));
     localStorage.setItem("byok_minimax_key", minimaxKey.trim());
     localStorage.setItem("byok_glm_key", glmKey.trim());
     localStorage.setItem("byok_openai_key", openaiKey.trim());
     localStorage.setItem("byok_deepseek_key", deepseekKey.trim());
     localStorage.setItem("byok_kimi_key", kimiKey.trim());
+    localStorage.setItem('byok_siliconflow_key', siliconflowKey.trim());
     localStorage.setItem("byok_ima_client_id", imaClientId.trim());
     localStorage.setItem("byok_ima_key", imaKey.trim());
     localStorage.setItem("byok_ima_kb_id", imaKbId);
@@ -95,6 +109,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   };
 
   const providers = [
+    { id: 'siliconflow', label: '硅基流动 API Key', val: siliconflowKey, setVal: setSiliconflowKey },
     { id: "minimax", label: "MiniMax API Key", val: minimaxKey, setVal: setMinimaxKey },
     { id: "glm", label: "智谱 GLM API Key", val: glmKey, setVal: setGlmKey },
     { id: "openai", label: "OpenAI API Key", val: openaiKey, setVal: setOpenaiKey },
@@ -121,10 +136,16 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
           </h3>
           
           <p className="text-[10px] text-text-muted mb-5 leading-relaxed">
-            请输入您的个人大模型 API Key。这些密钥将<strong>仅存在您的浏览器本地 (LocalStorage) </strong>。每次发起任务时仅在 Header 中临时传输给后端，后端服务器不保存任何 Key，保证隐私安全。
+            配置您的模型接口。保存的密钥<strong>仅存于当前浏览器</strong>，生成时临时发送给后端，后端不保存 API Key。
           </p>
 
           <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+            <section className="space-y-3 rounded-xl border border-accent-border bg-accent-light p-4">
+              <h4 className="text-xs font-semibold text-text-title">自定义模型接口</h4>
+              <CustomApiFields config={customConfig} onChange={(config) => { setCustomConfig(config); setCustomError(""); }} idPrefix="settings-custom" />
+              {customError && <p role="alert" className="text-xs text-red-400">{customError}</p>}
+              <p className="text-[10px] text-text-muted">保存后，生成页面会自动使用此自定义配置。清空以上三项并保存可删除配置。</p>
+            </section>
             {providers.map((p) => (
               <div key={p.id} className="flex flex-col gap-1.5">
                 <label className="text-[10px] text-text-muted font-semibold tracking-wide">

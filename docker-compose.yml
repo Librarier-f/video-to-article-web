@@ -6,6 +6,8 @@ services:
       context: ./backend
     container_name: video_article_backend
     restart: unless-stopped
+    environment:
+      GENERATION_CONCURRENCY: ${GENERATION_CONCURRENCY:-3}
     volumes:
       # Mount the database file so it persists across container restarts
       - ./backend/app.db:/app/app.db
